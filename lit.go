@@ -17,8 +17,12 @@ func NewLit(x Var, sign bool) Lit {
 }
 
 func (l *Lit) Sign() bool {
-	if l.X&1 != 0 {
-		return true
+	if l.X&1 == 0 {
+		return false
 	}
-	return false
+	return true
+}
+
+func (l *Lit) Var() Var {
+	return Var(l.X >> 1)
 }
