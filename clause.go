@@ -27,3 +27,31 @@ func NewClause(ps []Lit, useExtra, learnt bool) Clause {
 
 	return c
 }
+
+func (c *Clause) Size() int {
+	return c.header.Size
+}
+
+func (c *Clause) Learnt() bool {
+	return c.header.Learnt
+}
+
+func (c *Clause) HasExtra() bool {
+	return c.header.HasExtra
+}
+
+func (c *Clause) Mark() uint {
+	return c.header.Mark
+}
+
+func (c *Clause) At(i int) Lit {
+	return c.Data[i]
+}
+
+func (c *Clause) Last(i int) Lit {
+	return c.Data[c.Size()-1]
+}
+
+func (c *Clause) Activity() float32 {
+	return c.Act
+}
