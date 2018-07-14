@@ -17,16 +17,18 @@ func readClause(line string, s *Solver) (lits []Lit, err error) {
 		if err != nil {
 			return nil, err
 		}
+		if parsedValue == 0 {
+			return nil, fmt.Errorf("PARSE ERROR! The format of cnf input is worng")
+		}
 
 		value := parsedValue
 		neg := false
-		if parsedValue < 0 {
+		if parsedValue > 0 {
+			value--
+		} else {
 			neg = true
 			value *= -1
-		}
-		value--
-		if value < 0 {
-			return nil, fmt.Errorf("PARSE ERROR! The format of cnf input is worng")
+			value--
 		}
 
 		//TODO
