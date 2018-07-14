@@ -1,14 +1,19 @@
 package main
 
+import (
+	"fmt"
+)
+
+//ClauseAllocator
 type ClauseReference uint32
 
 type ClauseAllocator struct {
 	Qhead   ClauseReference //Allocate
-	Clauses map[ClauseReference]Clause
+	Clauses map[ClauseReference]*Clause
 }
 
 func NewClauseAllocator() *ClauseAllocator {
-	return &ClauseAllocator{Qhead: 0, Clauses: make(map[ClauseReference]Clause)}
+	return &ClauseAllocator{Qhead: 0, Clauses: make(map[ClauseReference]*Clause)}
 }
 
 func (c *ClauseAllocator) NewAllocate(lits []Lit, learnt bool) (ClauseReference, error) {
@@ -18,6 +23,14 @@ func (c *ClauseAllocator) NewAllocate(lits []Lit, learnt bool) (ClauseReference,
 	return cref, nil
 }
 
+func (c *ClauseAllocator) GetClause(claRef ClauseReference) (clause *Clause, err error) {
+	if clause, ok := c.Clauses[claRef]; ok {
+		return clause, nil
+	}
+	return nil, fmt.Errorf("This clause is not allocated: %d", claRef)
+}
+
+//Clause
 type Header struct {
 	Mark     uint
 	Learnt   bool
@@ -31,7 +44,7 @@ type Clause struct {
 	Act    float32
 }
 
-func NewClause(ps []Lit, useExtra, learnt bool) Clause {
+func NewClause(ps []Lit, useExtra, learnt bool) *Clause {
 	var c Clause
 	c.header.Mark = 0
 	c.header.Learnt = learnt
@@ -43,7 +56,7 @@ func NewClause(ps []Lit, useExtra, learnt bool) Clause {
 	}
 	c.Act = 0
 
-	return c
+	return &c
 }
 
 func (c *Clause) Size() int {

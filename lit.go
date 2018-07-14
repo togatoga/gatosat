@@ -46,6 +46,11 @@ func (l *Lit) Sign() bool {
 	return true
 }
 
+func (l *Lit) Flip() Lit {
+	x := l.Var()
+	return NewLit(x, !l.Sign())
+}
+
 func (l *Lit) Var() Var {
 	return Var(l.X >> 1)
 }
