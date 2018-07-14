@@ -9,6 +9,9 @@ type Solver struct {
 	ClaAllocator *ClauseAllocator
 	Clauses      map[ClauseReference]bool
 	Watches      map[Lit][]*Watcher
+	Assigns      []LiteralBool
+	NextVar      Var //Next variable to be created
+	VarData      []*VarData
 }
 
 func NewSolver() *Solver {
@@ -17,8 +20,21 @@ func NewSolver() *Solver {
 		ClaAllocator: NewClauseAllocator(),
 		Clauses:      make(map[ClauseReference]bool),
 		Watches:      make(map[Lit][]*Watcher),
+		NextVar:      0,
 	}
 	return solver
+}
+
+func (s *Solver) NewVar() Var {
+	v := s.NextVar
+	s.NextVar++
+	s.Assigns = append(s.Assigns, LiteralUndef)
+	s.VarData = append(s.VarData, NewVarData(ClaRefUndef, 0))
+	return v
+}
+
+func (s *Solver) NumVars() int {
+	return int(s.NextVar)
 }
 
 func (s *Solver) addClause(lits []Lit) (err error) {

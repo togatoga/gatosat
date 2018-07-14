@@ -4,6 +4,12 @@ type Var int
 
 const VarUndef Var = -1
 
+type LiteralBool int
+
+const LiterealTrue = 0
+const LiteralFalse = 1
+const LiteralUndef = 2
+
 type Lit struct {
 	X int
 }

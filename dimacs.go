@@ -31,10 +31,9 @@ func readClause(line string, s *Solver) (lits []Lit, err error) {
 			value--
 		}
 
-		//TODO
-		/* for value >= s.nVars() {
-			s.NewValue()
-		} */
+		for value >= s.NumVars() {
+			s.NewVar()
+		}
 
 		lit := NewLit(Var(value), neg)
 		lits = append(lits, lit)
@@ -50,7 +49,7 @@ func parseDimacs(in *bufio.Scanner, s *Solver) (err error) {
 	for in.Scan() {
 		line := in.Text()
 		line = strings.TrimLeft(line, " ")
-		//comment
+		//skip comment
 		if strings.HasPrefix(line, "c") {
 			continue
 		}
