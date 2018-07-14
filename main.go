@@ -40,7 +40,7 @@ func main() {
 			return err
 		}
 		in := bufio.NewScanner(fp)
-		solver := new(Solver)
+		solver := NewSolver()
 		err = parseDimacs(in, solver)
 		if err != nil {
 			return err

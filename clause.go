@@ -1,5 +1,23 @@
 package main
 
+type ClauseReference uint32
+
+type ClauseAllocator struct {
+	Qhead   ClauseReference //Allocate
+	Clauses map[ClauseReference]Clause
+}
+
+func NewClauseAllocator() *ClauseAllocator {
+	return &ClauseAllocator{Qhead: 0, Clauses: make(map[ClauseReference]Clause)}
+}
+
+func (c *ClauseAllocator) NewAllocate(lits []Lit, learnt bool) (ClauseReference, error) {
+	cref := c.Qhead
+	c.Clauses[cref] = NewClause(lits, false, learnt)
+	c.Qhead++
+	return cref, nil
+}
+
 type Header struct {
 	Mark     uint
 	Learnt   bool
