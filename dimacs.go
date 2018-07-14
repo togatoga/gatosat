@@ -25,6 +25,9 @@ func readClause(line string, s *Solver) (lits []Lit, err error) {
 			value *= -1
 		}
 		value--
+		if value < 0 {
+			return nil, fmt.Errorf("PARSE ERROR! The format of cnf input is worng")
+		}
 
 		//TODO
 		/* for value >= s.nVars() {
