@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"os"
 
@@ -19,9 +20,17 @@ func GetFlags() []cli.Flag {
 		},
 		cli.StringFlag{
 			Name:  "input-file, in",
-			Usage: "input cnf file for solving",
+			Usage: "input cnf file for solving(required)",
+			Value: "None",
 		},
 	}
+}
+
+func ValidateFlags(c *cli.Context) (err error) {
+	if c.String("input-file") == "None" {
+		return fmt.Errorf("input-file is required.")
+	}
+	return nil
 }
 
 func main() {
@@ -37,6 +46,14 @@ func main() {
 	}
 
 	app.Action = func(c *cli.Context) error {
+		var err error
+		//validate flag
+		err = ValidateFlags(c)
+		if err != nil {
+			fmt.Println(err)
+			cli.ShowAppHelpAndExit(c, 2)
+		}
+
 		//input
 		inputFile := c.String("input-file")
 		fp, err := os.Open(inputFile)
