@@ -8,7 +8,7 @@ import (
 //ClauseAllocator
 type ClauseReference uint32
 
-const ClaRefUndef = math.MaxUint32
+const ClaRefUndef ClauseReference = math.MaxUint32
 
 type ClauseAllocator struct {
 	Qhead   ClauseReference //Allocate
