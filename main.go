@@ -11,12 +11,8 @@ import (
 
 var DebugMode bool
 
-func main() {
-
-	app := cli.NewApp()
-	app.Name = "gatosat"
-	app.Usage = "A CDCL SAT Solver"
-	app.Flags = []cli.Flag{
+func GetFlags() []cli.Flag {
+	return []cli.Flag{
 		cli.BoolFlag{
 			Name:  "debug,d",
 			Usage: "Debug mode",
@@ -26,6 +22,14 @@ func main() {
 			Usage: "input cnf file for solving",
 		},
 	}
+}
+
+func main() {
+
+	app := cli.NewApp()
+	app.Name = "gatosat"
+	app.Usage = "A CDCL SAT Solver"
+	app.Flags = GetFlags()
 
 	app.Before = func(c *cli.Context) error {
 		DebugMode = c.Bool("debug")
