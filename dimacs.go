@@ -8,7 +8,7 @@ import (
 )
 
 func readClause(line string, s *Solver) (lits []Lit, err error) {
-	values := strings.Split(line, " ")
+	values := strings.Fields(line)
 	if values[len(values)-1] != "0" {
 		return nil, fmt.Errorf("PARSE ERROR! The end of clause is not 0: %s", line)
 	}
@@ -48,7 +48,6 @@ func parseDimacs(in *bufio.Scanner, s *Solver) (err error) {
 	cnt := 0
 	for in.Scan() {
 		line := in.Text()
-		line = strings.TrimLeft(line, " ")
 		//skip comment
 		if strings.HasPrefix(line, "c") {
 			continue
