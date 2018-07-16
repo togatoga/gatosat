@@ -9,7 +9,7 @@ type Solver struct {
 	ClaAllocator *ClauseAllocator         //The allocator for clause
 	Clauses      map[ClauseReference]bool //List of problem clauses.
 	Watches      map[Lit][]*Watcher       //'watches[lit]' is a list of constraints watching 'lit' (will go there if literal becomes true).
-	Assigns      []LiteralBool            //The current assignments.
+	Assigns      []LitBool                //The current assignments.
 	Qhead        int                      //Head of queue (as index into the trail -- no more explicit propagation queue in MiniSat).
 	Trail        []Lit                    //Assignment stack; stores all assigments made in the order the were made.
 	TrailLim     []int                    //Separator indices for different decision levels in 'trail'.
@@ -35,25 +35,25 @@ func NewSolver() *Solver {
 func (s *Solver) NewVar() Var {
 	v := s.NextVar
 	s.NextVar++
-	s.Assigns = append(s.Assigns, LiteralUndef)
+	s.Assigns = append(s.Assigns, LitBoolUndef)
 	s.VarData = append(s.VarData, NewVarData(ClaRefUndef, 0))
 	s.Seen = append(s.Seen, false)
 	return v
 }
 
-func (s *Solver) Value(p Lit) LiteralBool {
-	if s.Assigns[p.Var()] == LiteralUndef {
-		return LiteralUndef
-	} else if s.Assigns[p.Var()] == LiteralTrue {
+func (s *Solver) Value(p Lit) LitBool {
+	if s.Assigns[p.Var()] == LitBoolUndef {
+		return LitBoolUndef
+	} else if s.Assigns[p.Var()] == LitBoolTrue {
 		if !p.Sign() {
-			return LiteralTrue
+			return LitBoolTrue
 		}
-	} else if s.Assigns[p.Var()] == LiteralFalse {
+	} else if s.Assigns[p.Var()] == LitBoolFalse {
 		if p.Sign() {
-			return LiteralTrue
+			return LitBoolTrue
 		}
 	}
-	return LiteralFalse
+	return LitBoolFalse
 }
 
 func (s *Solver) NumVars() int {
@@ -62,15 +62,15 @@ func (s *Solver) NumVars() int {
 
 func (s *Solver) UncheckedEnqueue(p Lit, from ClauseReference) {
 	if DebugMode {
-		if s.Value(p) != LiteralUndef {
+		if s.Value(p) != LitBoolUndef {
 			panic(fmt.Sprintf("The assign is not LiteralUndef: Value(%d) = %v", p, s.Value(p)))
 		}
 	}
 
 	if !p.Sign() {
-		s.Assigns[p.Var()] = LiteralTrue
+		s.Assigns[p.Var()] = LitBoolTrue
 	} else {
-		s.Assigns[p.Var()] = LiteralFalse
+		s.Assigns[p.Var()] = LitBoolFalse
 	}
 	s.VarData[p.Var()] = NewVarData(from, s.DecisionLevel())
 	s.Trail = append(s.Trail, p)
@@ -88,7 +88,7 @@ func (s *Solver) Propagate() ClauseReference {
 			watcher := s.Watches[p][lastIdx]
 			blocker := watcher.blocker
 			// Try to avoid inspecting the clause.
-			if s.Value(blocker) == LiteralTrue {
+			if s.Value(blocker) == LitBoolTrue {
 				s.Watches[p][copiedIdx] = s.Watches[p][lastIdx]
 				lastIdx++
 				copiedIdx++
@@ -113,7 +113,7 @@ func (s *Solver) Propagate() ClauseReference {
 			// If 0th watch is true, then clause is already satisfied
 			firstLiteral := clause.At(0)
 			w := NewWatcher(cr, firstLiteral)
-			if firstLiteral != blocker && s.Value(firstLiteral) == LiteralTrue {
+			if firstLiteral != blocker && s.Value(firstLiteral) == LitBoolTrue {
 				s.Watches[p][copiedIdx] = w
 				copiedIdx++
 				continue
@@ -122,7 +122,7 @@ func (s *Solver) Propagate() ClauseReference {
 			// Look for new watch:
 			for i := 2; i < clause.Size(); i++ {
 				//Find the candidate for watching
-				if s.Value(clause.At(i)) != LiteralFalse {
+				if s.Value(clause.At(i)) != LitBoolFalse {
 					clause.Data[1], clause.Data[i] = clause.Data[i], falseLit
 					x := clause.At(1)
 					s.Watches[x.Flip()] = append(s.Watches[x.Flip()], w)
@@ -132,7 +132,7 @@ func (s *Solver) Propagate() ClauseReference {
 			// Did not find watch -- clause is unit under assignment:
 			s.Watches[p][copiedIdx] = w
 			copiedIdx++
-			if s.Value(firstLiteral) == LiteralFalse {
+			if s.Value(firstLiteral) == LitBoolFalse {
 				confl = cr
 				s.Qhead = len(s.Trail)
 				//Copy the remaining watches:
@@ -209,7 +209,7 @@ func (s *Solver) Level(x Var) int {
 
 func (s *Solver) Analyze(confl ClauseReference) (learntClause []Lit, backTrackLevel int) {
 	var p Lit
-	p.X = LiteralUndef
+	p.X = LitUndef
 
 	pathConflict := 0
 	idx := len(s.Trail) - 1
@@ -222,7 +222,7 @@ func (s *Solver) Analyze(confl ClauseReference) (learntClause []Lit, backTrackLe
 			panic(err)
 		}
 		var startIndex int
-		if p.X == LiteralUndef {
+		if p.X == LitUndef {
 			startIndex = 0
 		} else {
 			startIndex = 1
@@ -283,7 +283,7 @@ func (s *Solver) Analyze(confl ClauseReference) (learntClause []Lit, backTrackLe
 	return learntClause, backTrackLevel
 }
 
-func (s *Solver) Search() LiteralBool {
+func (s *Solver) Search() LitBool {
 	if !s.OK {
 		panic("s.OK is false")
 	}
@@ -296,7 +296,7 @@ func (s *Solver) Search() LiteralBool {
 
 			//If the decision level is 0, the problem is unsatisfiable.
 			if s.DecisionLevel() == 0 {
-				return LiteralFalse
+				return LitBoolFalse
 			}
 
 			/* learntClause := []Lit{}
@@ -307,5 +307,5 @@ func (s *Solver) Search() LiteralBool {
 		}
 	}
 
-	return LiteralUndef
+	return LitUndef
 }

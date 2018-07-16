@@ -10,7 +10,7 @@ import (
 func readClause(line string, s *Solver) (lits []Lit, err error) {
 	values := strings.Split(line, " ")
 	if values[len(values)-1] != "0" {
-		return nil, fmt.Errorf("PARSE ERROR! The end of clause is not 0: %s", values[len(values)-1])
+		return nil, fmt.Errorf("PARSE ERROR! The end of clause is not 0: %s", line)
 	}
 	for i := 0; i < len(values)-1; i++ {
 		parsedValue, err := strconv.Atoi(values[i])

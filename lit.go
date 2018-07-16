@@ -4,15 +4,22 @@ type Var int
 
 const VarUndef Var = -1
 
-type LiteralBool int
+type LitBool int
 
-const LiteralTrue = 0
-const LiteralFalse = 1
-const LiteralUndef = 2
+const (
+	LitBoolTrue  LitBool = 0
+	LitBoolFalse LitBool = 1
+	LitBoolUndef LitBool = 2
+)
 
 type Lit struct {
 	X int
 }
+
+const (
+	LitUndef = -2
+	LitError = -1
+)
 
 func NewLit(x Var, sign bool) *Lit {
 	var p Lit
