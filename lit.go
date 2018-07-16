@@ -14,14 +14,14 @@ type Lit struct {
 	X int
 }
 
-func NewLit(x Var, sign bool) Lit {
+func NewLit(x Var, sign bool) *Lit {
 	var p Lit
 	y := 2 * x
 	if sign == true {
 		y++
 	}
 	p.X = int(y)
-	return p
+	return &p
 }
 
 func (l *Lit) Equal(p Lit) bool {
@@ -54,7 +54,7 @@ func (l *Lit) Sign() bool {
 
 func (l *Lit) Flip() Lit {
 	x := l.Var()
-	return NewLit(x, !l.Sign())
+	return *NewLit(x, !l.Sign())
 }
 
 func (l *Lit) Var() Var {

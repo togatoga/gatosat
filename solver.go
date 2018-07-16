@@ -10,12 +10,13 @@ type Solver struct {
 	Clauses      map[ClauseReference]bool //List of problem clauses.
 	Watches      map[Lit][]*Watcher       //'watches[lit]' is a list of constraints watching 'lit' (will go there if literal becomes true).
 	Assigns      []LiteralBool            //The current assignments.
-	Qhead        int                      // Head of queue (as index into the trail -- no more explicit propagation queue in MiniSat).
+	Qhead        int                      //Head of queue (as index into the trail -- no more explicit propagation queue in MiniSat).
 	Trail        []Lit                    //Assignment stack; stores all assigments made in the order the were made.
 	TrailLim     []int                    //Separator indices for different decision levels in 'trail'.
 	NextVar      Var                      //Next variable to be created.
 	VarData      []*VarData               //Stores reason and level for each variable.
-	OK           bool                     // If FALSE, the constraints are already unsatisfiable. No part of the solver state may be used!
+	OK           bool                     //If FALSE, the constraints are already unsatisfiable. No part of the solver state may be used!
+	Seen         []bool                   //The seen variable for clause learning
 }
 
 func NewSolver() *Solver {
@@ -36,6 +37,7 @@ func (s *Solver) NewVar() Var {
 	s.NextVar++
 	s.Assigns = append(s.Assigns, LiteralUndef)
 	s.VarData = append(s.VarData, NewVarData(ClaRefUndef, 0))
+	s.Seen = append(s.Seen, false)
 	return v
 }
 
@@ -195,4 +197,115 @@ func (s *Solver) attachClause(claRef ClauseReference) (err error) {
 	s.Watches[secondLit.Flip()] = append(s.Watches[secondLit.Flip()], NewWatcher(claRef, secondLit))
 
 	return nil
+}
+
+func (s *Solver) Reason(x Var) ClauseReference {
+	return s.VarData[x].Reason
+}
+
+func (s *Solver) Level(x Var) int {
+	return s.VarData[x].Level
+}
+
+func (s *Solver) Analyze(confl ClauseReference) (learntClause []Lit, backTrackLevel int) {
+	var p Lit
+	p.X = LiteralUndef
+
+	pathConflict := 0
+	idx := len(s.Trail) - 1
+	for {
+		if confl == ClaRefUndef {
+			panic("The conflict doesn't point any regisions")
+		}
+		conflCla, err := s.ClaAllocator.GetClause(confl)
+		if err != nil {
+			panic(err)
+		}
+		var startIndex int
+		if p.X == LiteralUndef {
+			startIndex = 0
+		} else {
+			startIndex = 1
+		}
+		for i := startIndex; i < conflCla.Size(); i++ {
+			q := conflCla.At(i)
+			if !s.Seen[q.Var()] && s.Level(q.Var()) > 0 {
+				//TODO
+				s.Seen[q.Var()] = true
+				if s.Level(q.Var()) >= s.DecisionLevel() {
+					pathConflict++
+				} else {
+					learntClause = append(learntClause, q)
+				}
+			}
+		}
+		// Select next clause to look at:
+		update := true
+		for update {
+			p = s.Trail[idx]
+			update = !s.Seen[s.Trail[idx].Var()]
+			idx--
+		}
+
+		confl = s.Reason(p.Var())
+		s.Seen[p.Var()] = false
+		pathConflict--
+		if pathConflict < 0 {
+			break
+		}
+	}
+	learntClause[0] = p.Flip()
+
+	//TODO
+	//Simplify conflict clause:
+
+	analyzeToClear := make([]Lit, len(learntClause))
+	copy(analyzeToClear, learntClause)
+
+	if len(learntClause) == 1 {
+		backTrackLevel = 0
+	} else {
+		maxIdx := 1
+		// Find the first literal assigned at the next-highest level:
+		for i := 2; i < len(learntClause); i++ {
+			if s.Level(learntClause[i].Var()) > s.Level(learntClause[maxIdx].Var()) {
+				maxIdx = i
+			}
+		}
+
+		learntClause[maxIdx], learntClause[1] = learntClause[1], learntClause[maxIdx]
+		backTrackLevel = s.Level(learntClause[maxIdx].Var())
+	}
+	for _, lit := range analyzeToClear {
+		s.Seen[lit.Var()] = false
+	}
+
+	return learntClause, backTrackLevel
+}
+
+func (s *Solver) Search() LiteralBool {
+	if !s.OK {
+		panic("s.OK is false")
+	}
+
+	for {
+		confl := s.Propagate()
+
+		if confl != ClaRefUndef {
+			//Conflict
+
+			//If the decision level is 0, the problem is unsatisfiable.
+			if s.DecisionLevel() == 0 {
+				return LiteralFalse
+			}
+
+			/* learntClause := []Lit{}
+			backTrackLevel := math.MaxInt32 */
+			//TODO
+			//Analyze
+
+		}
+	}
+
+	return LiteralUndef
 }

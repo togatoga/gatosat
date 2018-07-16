@@ -36,7 +36,7 @@ func readClause(line string, s *Solver) (lits []Lit, err error) {
 		}
 
 		lit := NewLit(Var(value), neg)
-		lits = append(lits, lit)
+		lits = append(lits, *lit)
 	}
 
 	return lits, nil
