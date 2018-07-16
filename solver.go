@@ -152,6 +152,19 @@ func (s *Solver) Propagate() ClauseReference {
 	return confl
 }
 
+func (s *Solver) CancelUntil(level int) {
+	if s.DecisionLevel() > level {
+		for c := len(s.Trail) - 1; c >= s.TrailLim[level]; c-- {
+			x := s.Trail[c].Var()
+			s.Assigns[x] = LitUndef
+			//TODO Phase Saving
+		}
+		s.Qhead = s.TrailLim[level]
+		s.Trail = s.Trail[:s.Qhead]
+		s.TrailLim = s.TrailLim[:level]
+	}
+}
+
 func (s *Solver) DecisionLevel() int {
 	return len(s.TrailLim)
 }
