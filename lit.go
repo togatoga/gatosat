@@ -6,7 +6,7 @@ const VarUndef Var = -1
 
 type LiteralBool int
 
-const LiterealTrue = 0
+const LiteralTrue = 0
 const LiteralFalse = 1
 const LiteralUndef = 2
 

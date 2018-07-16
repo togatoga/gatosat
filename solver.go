@@ -15,6 +15,7 @@ type Solver struct {
 	TrailLim     []int                    //Separator indices for different decision levels in 'trail'.
 	NextVar      Var                      //Next variable to be created.
 	VarData      []*VarData               //Stores reason and level for each variable.
+	OK           bool                     // If FALSE, the constraints are already unsatisfiable. No part of the solver state may be used!
 }
 
 func NewSolver() *Solver {
@@ -25,6 +26,7 @@ func NewSolver() *Solver {
 		Watches:      make(map[Lit][]*Watcher),
 		Qhead:        0,
 		NextVar:      0,
+		OK:           true,
 	}
 	return solver
 }
@@ -40,13 +42,13 @@ func (s *Solver) NewVar() Var {
 func (s *Solver) Value(p Lit) LiteralBool {
 	if s.Assigns[p.Var()] == LiteralUndef {
 		return LiteralUndef
-	} else if s.Assigns[p.Var()] == LiterealTrue {
+	} else if s.Assigns[p.Var()] == LiteralTrue {
 		if !p.Sign() {
-			return LiterealTrue
+			return LiteralTrue
 		}
 	} else if s.Assigns[p.Var()] == LiteralFalse {
 		if p.Sign() {
-			return LiterealTrue
+			return LiteralTrue
 		}
 	}
 	return LiteralFalse
@@ -64,7 +66,7 @@ func (s *Solver) UncheckedEnqueue(p Lit, from ClauseReference) {
 	}
 
 	if !p.Sign() {
-		s.Assigns[p.Var()] = LiterealTrue
+		s.Assigns[p.Var()] = LiteralTrue
 	} else {
 		s.Assigns[p.Var()] = LiteralFalse
 	}
@@ -72,27 +74,109 @@ func (s *Solver) UncheckedEnqueue(p Lit, from ClauseReference) {
 	s.Trail = append(s.Trail, p)
 }
 
+func (s *Solver) Propagate() ClauseReference {
+	confl := ClaRefUndef
+
+	for s.Qhead < len(s.Trail) {
+		p := s.Trail[s.Qhead]
+		s.Qhead++
+		lastIdx := 0
+		copiedIdx := 0
+		for lastIdx < len(s.Watches[p]) {
+			watcher := s.Watches[p][lastIdx]
+			blocker := watcher.blocker
+			// Try to avoid inspecting the clause.
+			if s.Value(blocker) == LiteralTrue {
+				s.Watches[p][copiedIdx] = s.Watches[p][lastIdx]
+				lastIdx++
+				copiedIdx++
+				continue
+			}
+
+			// Make sure the false literal is data[1]
+			cr := watcher.claRef
+			clause, err := s.ClaAllocator.GetClause(cr)
+			if err != nil {
+				panic(err)
+			}
+			falseLit := p.Flip()
+			if clause.At(0) == falseLit {
+				clause.Data[0], clause.Data[1] = clause.Data[1], falseLit
+			}
+			if clause.At(1) != falseLit {
+				panic(fmt.Errorf("The 1th literal is not falseLit: %v %v", clause.At(1), falseLit))
+			}
+			lastIdx++
+
+			// If 0th watch is true, then clause is already satisfied
+			firstLiteral := clause.At(0)
+			w := NewWatcher(cr, firstLiteral)
+			if firstLiteral != blocker && s.Value(firstLiteral) == LiteralTrue {
+				s.Watches[p][copiedIdx] = w
+				copiedIdx++
+				continue
+			}
+
+			// Look for new watch:
+			for i := 2; i < clause.Size(); i++ {
+				//Find the candidate for watching
+				if s.Value(clause.At(i)) != LiteralFalse {
+					clause.Data[1], clause.Data[i] = clause.Data[i], falseLit
+					x := clause.At(1)
+					s.Watches[x.Flip()] = append(s.Watches[x.Flip()], w)
+					goto NextClause
+				}
+			}
+			// Did not find watch -- clause is unit under assignment:
+			s.Watches[p][copiedIdx] = w
+			copiedIdx++
+			if s.Value(firstLiteral) == LiteralFalse {
+				confl = cr
+				s.Qhead = len(s.Trail)
+				//Copy the remaining watches:
+				for lastIdx < len(s.Watches[p]) {
+					s.Watches[p][copiedIdx] = s.Watches[p][lastIdx]
+					lastIdx++
+					copiedIdx++
+				}
+			} else {
+				s.UncheckedEnqueue(firstLiteral, cr)
+			}
+		NextClause:
+		}
+		s.Watches[p] = s.Watches[p][:copiedIdx]
+	}
+
+	return confl
+}
+
 func (s *Solver) DecisionLevel() int {
 	return len(s.TrailLim)
 }
 
-func (s *Solver) addClause(lits []Lit) (err error) {
-
-	if len(lits) == 1 {
-		panic("TODO")
+func (s *Solver) addClause(lits []Lit) bool {
+	// What clause is empty means that the problem is unsatisfiable
+	if len(lits) == 0 {
+		s.OK = false
+	} else if len(lits) == 1 {
+		s.UncheckedEnqueue(lits[0], ClaRefUndef)
+		confl := s.Propagate()
+		//Found conflict
+		if confl != ClaRefUndef {
+			s.OK = false
+		}
 	} else {
 		claRef, err := s.ClaAllocator.NewAllocate(lits, false)
 		if err != nil {
-			return err
+			panic(err)
 		}
 		s.Clauses[claRef] = true
-
 		err = s.attachClause(claRef)
 		if err != nil {
-			return err
+			panic(err)
 		}
 	}
-	return nil
+	return true
 }
 
 func (s *Solver) attachClause(claRef ClauseReference) (err error) {
