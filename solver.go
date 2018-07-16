@@ -213,6 +213,8 @@ func (s *Solver) Analyze(confl ClauseReference) (learntClause []Lit, backTrackLe
 
 	pathConflict := 0
 	idx := len(s.Trail) - 1
+
+	learntClause = append(learntClause, p) // (leave room for the asserting literal)
 	for {
 		if confl == ClaRefUndef {
 			panic("The conflict doesn't point any regisions")
@@ -243,14 +245,14 @@ func (s *Solver) Analyze(confl ClauseReference) (learntClause []Lit, backTrackLe
 		update := true
 		for update {
 			p = s.Trail[idx]
-			update = !s.Seen[s.Trail[idx].Var()]
+			update = !s.Seen[p.Var()]
 			idx--
 		}
 
 		confl = s.Reason(p.Var())
 		s.Seen[p.Var()] = false
 		pathConflict--
-		if pathConflict < 0 {
+		if pathConflict <= 0 {
 			break
 		}
 	}
