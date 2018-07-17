@@ -14,7 +14,9 @@ type Solver struct {
 	Trail        []Lit                    //Assignment stack; stores all assigments made in the order the were made.
 	TrailLim     []int                    //Separator indices for different decision levels in 'trail'.
 	NextVar      Var                      //Next variable to be created.
+	Decision     []bool                   // A priority queue of variables ordered with respect to the variable activity.
 	VarData      []*VarData               //Stores reason and level for each variable.
+	VarOrder     *Heap                    // A priority queue of variables ordered with respect to the variable activity.
 	OK           bool                     //If FALSE, the constraints are already unsatisfiable. No part of the solver state may be used!
 	Seen         []bool                   //The seen variable for clause learning
 }
@@ -27,6 +29,7 @@ func NewSolver() *Solver {
 		Watches:      make(map[Lit][]*Watcher),
 		Qhead:        0,
 		NextVar:      0,
+		VarOrder:     NewHeap(),
 		OK:           true,
 	}
 	return solver
@@ -38,6 +41,7 @@ func (s *Solver) NewVar() Var {
 	s.Assigns = append(s.Assigns, LitBoolUndef)
 	s.VarData = append(s.VarData, NewVarData(ClaRefUndef, 0))
 	s.Seen = append(s.Seen, false)
+	s.SetDecisionVar(v, true)
 	return v
 }
 
@@ -158,6 +162,7 @@ func (s *Solver) CancelUntil(level int) {
 			x := s.Trail[c].Var()
 			s.Assigns[x] = LitUndef
 			//TODO Phase Saving
+			s.InsertVarOrder(x)
 		}
 		s.Qhead = s.TrailLim[level]
 		s.Trail = s.Trail[:s.Qhead]
@@ -218,6 +223,17 @@ func (s *Solver) Reason(x Var) ClauseReference {
 
 func (s *Solver) Level(x Var) int {
 	return s.VarData[x].Level
+}
+
+func (s *Solver) SetDecisionVar(x Var, eligible bool) {
+	s.Decision[int(x)] = eligible
+	s.InsertVarOrder(x)
+}
+
+func (s *Solver) InsertVarOrder(x Var) {
+	if !s.VarOrder.InHeap(x) && s.Decision[x] {
+		s.VarOrder.PushBack(x)
+	}
 }
 
 func (s *Solver) Analyze(confl ClauseReference) (learntClause []Lit, backTrackLevel int) {
