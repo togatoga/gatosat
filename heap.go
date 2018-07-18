@@ -30,6 +30,10 @@ func (h *Heap) InHeap(x Var) bool {
 	return int(x) < len(h.indices) && h.indices[x] >= 0
 }
 
+func (h *Heap) Activity(x Var) float32 {
+	return h.activity[x]
+}
+
 func (h *Heap) Update(x Var) {
 	if !h.InHeap(x) {
 		h.PushBack(x)

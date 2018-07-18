@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/k0kubun/pp"
 	"github.com/urfave/cli"
 )
 
@@ -66,7 +65,7 @@ func main() {
 		if err != nil {
 			return err
 		}
-		pp.Println(solver)
+		fmt.Println(solver.Solve())
 
 		return nil
 	}

@@ -2,35 +2,40 @@ package main
 
 import (
 	"fmt"
+
+	"github.com/k0kubun/pp"
 )
 
 type Solver struct {
-	Verbosity    bool
-	ClaAllocator *ClauseAllocator         //The allocator for clause
-	Clauses      map[ClauseReference]bool //List of problem clauses.
-	Watches      map[Lit][]*Watcher       //'watches[lit]' is a list of constraints watching 'lit' (will go there if literal becomes true).
-	Assigns      []LitBool                //The current assignments.
-	Qhead        int                      //Head of queue (as index into the trail -- no more explicit propagation queue in MiniSat).
-	Trail        []Lit                    //Assignment stack; stores all assigments made in the order the were made.
-	TrailLim     []int                    //Separator indices for different decision levels in 'trail'.
-	NextVar      Var                      //Next variable to be created.
-	Decision     []bool                   // A priority queue of variables ordered with respect to the variable activity.
-	VarData      []*VarData               //Stores reason and level for each variable.
-	VarOrder     *Heap                    // A priority queue of variables ordered with respect to the variable activity.
-	OK           bool                     //If FALSE, the constraints are already unsatisfiable. No part of the solver state may be used!
-	Seen         []bool                   //The seen variable for clause learning
+	Verbosity     bool
+	ClaAllocator  *ClauseAllocator         //The allocator for clause
+	Clauses       map[ClauseReference]bool //List of problem clauses.
+	LearntClauses map[ClauseReference]bool //List of learnt clauses.
+	Watches       map[Lit][]*Watcher       //'watches[lit]' is a list of constraints watching 'lit' (will go there if literal becomes true).
+	Assigns       []LitBool                //The current assignments.
+	Qhead         int                      //Head of queue (as index into the trail -- no more explicit propagation queue in MiniSat).
+	Trail         []Lit                    //Assignment stack; stores all assigments made in the order the were made.
+	TrailLim      []int                    //Separator indices for different decision levels in 'trail'.
+	NextVar       Var                      //Next variable to be created.
+	Decision      []bool                   // A priority queue of variables ordered with respect to the variable activity.
+	VarData       []VarData                //Stores reason and level for each variable.
+	VarOrder      *Heap                    // A priority queue of variables ordered with respect to the variable activity.
+	OK            bool                     //If FALSE, the constraints are already unsatisfiable. No part of the solver state may be used!
+	Seen          []bool                   //The seen variable for clause learning
+	Model         []LitBool                // If problem is satisfiable, this vector contains the model (if any).
 }
 
 func NewSolver() *Solver {
 	solver := &Solver{
-		Verbosity:    false,
-		ClaAllocator: NewClauseAllocator(),
-		Clauses:      make(map[ClauseReference]bool),
-		Watches:      make(map[Lit][]*Watcher),
-		Qhead:        0,
-		NextVar:      0,
-		VarOrder:     NewHeap(),
-		OK:           true,
+		Verbosity:     false,
+		ClaAllocator:  NewClauseAllocator(),
+		Clauses:       make(map[ClauseReference]bool),
+		LearntClauses: make(map[ClauseReference]bool),
+		Watches:       make(map[Lit][]*Watcher),
+		Qhead:         0,
+		NextVar:       0,
+		VarOrder:      NewHeap(),
+		OK:            true,
 	}
 	return solver
 }
@@ -39,13 +44,18 @@ func (s *Solver) NewVar() Var {
 	v := s.NextVar
 	s.NextVar++
 	s.Assigns = append(s.Assigns, LitBoolUndef)
-	s.VarData = append(s.VarData, NewVarData(ClaRefUndef, 0))
+	s.VarData = append(s.VarData, *NewVarData(ClaRefUndef, 0))
 	s.Seen = append(s.Seen, false)
+	s.Decision = append(s.Decision, true)
 	s.SetDecisionVar(v, true)
 	return v
 }
 
-func (s *Solver) Value(p Lit) LitBool {
+func (s *Solver) ValueVar(p Var) LitBool {
+	return s.Assigns[p]
+}
+
+func (s *Solver) ValueLit(p Lit) LitBool {
 	if s.Assigns[p.Var()] == LitBoolUndef {
 		return LitBoolUndef
 	} else if s.Assigns[p.Var()] == LitBoolTrue {
@@ -65,18 +75,15 @@ func (s *Solver) NumVars() int {
 }
 
 func (s *Solver) UncheckedEnqueue(p Lit, from ClauseReference) {
-	if DebugMode {
-		if s.Value(p) != LitBoolUndef {
-			panic(fmt.Sprintf("The assign is not LiteralUndef: Value(%d) = %v", p, s.Value(p)))
-		}
+	if s.ValueLit(p) != LitBoolUndef {
+		panic(fmt.Sprintf("The assign is not LiteralUndef: ValueLit(%d) = %v", p, s.ValueLit(p)))
 	}
-
 	if !p.Sign() {
 		s.Assigns[p.Var()] = LitBoolTrue
 	} else {
 		s.Assigns[p.Var()] = LitBoolFalse
 	}
-	s.VarData[p.Var()] = NewVarData(from, s.DecisionLevel())
+	s.VarData[p.Var()] = *NewVarData(from, s.decisionLevel())
 	s.Trail = append(s.Trail, p)
 }
 
@@ -92,7 +99,7 @@ func (s *Solver) Propagate() ClauseReference {
 			watcher := s.Watches[p][lastIdx]
 			blocker := watcher.blocker
 			// Try to avoid inspecting the clause.
-			if s.Value(blocker) == LitBoolTrue {
+			if s.ValueLit(blocker) == LitBoolTrue {
 				s.Watches[p][copiedIdx] = s.Watches[p][lastIdx]
 				lastIdx++
 				copiedIdx++
@@ -117,7 +124,7 @@ func (s *Solver) Propagate() ClauseReference {
 			// If 0th watch is true, then clause is already satisfied
 			firstLiteral := clause.At(0)
 			w := NewWatcher(cr, firstLiteral)
-			if firstLiteral != blocker && s.Value(firstLiteral) == LitBoolTrue {
+			if firstLiteral != blocker && s.ValueLit(firstLiteral) == LitBoolTrue {
 				s.Watches[p][copiedIdx] = w
 				copiedIdx++
 				continue
@@ -126,7 +133,7 @@ func (s *Solver) Propagate() ClauseReference {
 			// Look for new watch:
 			for i := 2; i < clause.Size(); i++ {
 				//Find the candidate for watching
-				if s.Value(clause.At(i)) != LitBoolFalse {
+				if s.ValueLit(clause.At(i)) != LitBoolFalse {
 					clause.Data[1], clause.Data[i] = clause.Data[i], falseLit
 					x := clause.At(1)
 					s.Watches[x.Flip()] = append(s.Watches[x.Flip()], w)
@@ -136,7 +143,7 @@ func (s *Solver) Propagate() ClauseReference {
 			// Did not find watch -- clause is unit under assignment:
 			s.Watches[p][copiedIdx] = w
 			copiedIdx++
-			if s.Value(firstLiteral) == LitBoolFalse {
+			if s.ValueLit(firstLiteral) == LitBoolFalse {
 				confl = cr
 				s.Qhead = len(s.Trail)
 				//Copy the remaining watches:
@@ -157,10 +164,10 @@ func (s *Solver) Propagate() ClauseReference {
 }
 
 func (s *Solver) CancelUntil(level int) {
-	if s.DecisionLevel() > level {
+	if s.decisionLevel() > level {
 		for c := len(s.Trail) - 1; c >= s.TrailLim[level]; c-- {
 			x := s.Trail[c].Var()
-			s.Assigns[x] = LitUndef
+			s.Assigns[x] = LitBoolUndef
 			//TODO Phase Saving
 			s.InsertVarOrder(x)
 		}
@@ -170,19 +177,57 @@ func (s *Solver) CancelUntil(level int) {
 	}
 }
 
-func (s *Solver) DecisionLevel() int {
+func (s *Solver) pickBranchLit() Lit {
+	// Activity based decision
+	nextVar := VarUndef
+	for nextVar == VarUndef || s.ValueVar(nextVar) != LitBoolUndef || !s.Decision[nextVar] {
+		if s.VarOrder.Empty() {
+			nextVar = VarUndef
+			break
+		}
+		nextVar = s.VarOrder.RemoveMin()
+	}
+	if nextVar == VarUndef {
+		return Lit{X: LitUndef}
+	}
+
+	return *NewLit(nextVar, true)
+}
+
+func (s *Solver) newDecisionLevel() {
+	s.TrailLim = append(s.TrailLim, len(s.Trail))
+}
+
+func (s *Solver) decisionLevel() int {
 	return len(s.TrailLim)
 }
 
 func (s *Solver) addClause(lits []Lit) bool {
+	if s.decisionLevel() != 0 {
+		panic(fmt.Errorf("The decision level is not zero: %d", s.decisionLevel()))
+	}
+	if !s.OK {
+		return false
+	}
+	// Check if clause is satisfied and remove false/duplicate literals:
+	p := Lit{X: LitUndef}
+	copiedIdx := 0
+	for i := 0; i < len(lits); i++ {
+		if s.ValueLit(lits[i]) == LitBoolTrue || lits[i].Equal(p.Flip()) {
+			return true
+		} else if s.ValueLit(lits[i]) != LitBoolFalse && lits[i].NotEqual(p) {
+			lits[copiedIdx], p = lits[i], lits[i]
+			copiedIdx++
+		}
+	}
+	lits = lits[:copiedIdx]
 	// What clause is empty means that the problem is unsatisfiable
 	if len(lits) == 0 {
 		s.OK = false
 	} else if len(lits) == 1 {
 		s.UncheckedEnqueue(lits[0], ClaRefUndef)
-		confl := s.Propagate()
 		//Found conflict
-		if confl != ClaRefUndef {
+		if confl := s.Propagate(); confl != ClaRefUndef {
 			s.OK = false
 		}
 	} else {
@@ -211,10 +256,21 @@ func (s *Solver) attachClause(claRef ClauseReference) (err error) {
 	firstLit := clause.At(0)
 	secondLit := clause.At(1)
 
-	s.Watches[firstLit.Flip()] = append(s.Watches[firstLit.Flip()], NewWatcher(claRef, firstLit))
-	s.Watches[secondLit.Flip()] = append(s.Watches[secondLit.Flip()], NewWatcher(claRef, secondLit))
+	s.Watches[firstLit.Flip()] = append(s.Watches[firstLit.Flip()], NewWatcher(claRef, secondLit))
+	s.Watches[secondLit.Flip()] = append(s.Watches[secondLit.Flip()], NewWatcher(claRef, firstLit))
 
 	return nil
+}
+
+func (s *Solver) Solve() LitBool {
+	if !s.OK {
+		return LitBoolFalse
+	}
+	status := LitBoolUndef
+	for status == LitBoolUndef {
+		status = s.Search(100)
+	}
+	return status
 }
 
 func (s *Solver) Reason(x Var) ClauseReference {
@@ -237,15 +293,16 @@ func (s *Solver) InsertVarOrder(x Var) {
 }
 
 func (s *Solver) Analyze(confl ClauseReference) (learntClause []Lit, backTrackLevel int) {
-	var p Lit
-	p.X = LitUndef
 
+	p := Lit{X: LitUndef}
 	pathConflict := 0
 	idx := len(s.Trail) - 1
 
 	learntClause = append(learntClause, p) // (leave room for the asserting literal)
 	for {
+
 		if confl == ClaRefUndef {
+			pp.Println(s.VarData[p.Var()], p.Var(), s.decisionLevel(), s.ValueLit(p), pathConflict)
 			panic("The conflict doesn't point any regisions")
 		}
 		conflCla, err := s.ClaAllocator.GetClause(confl)
@@ -263,7 +320,10 @@ func (s *Solver) Analyze(confl ClauseReference) (learntClause []Lit, backTrackLe
 			if !s.Seen[q.Var()] && s.Level(q.Var()) > 0 {
 				//TODO
 				s.Seen[q.Var()] = true
-				if s.Level(q.Var()) >= s.DecisionLevel() {
+				if s.Level(q.Var()) > s.decisionLevel() {
+					panic("The decision level of var is greater than or equal to 1")
+				}
+				if s.Level(q.Var()) == s.decisionLevel() {
 					pathConflict++
 				} else {
 					learntClause = append(learntClause, q)
@@ -304,9 +364,11 @@ func (s *Solver) Analyze(confl ClauseReference) (learntClause []Lit, backTrackLe
 			}
 		}
 
-		learntClause[maxIdx], learntClause[1] = learntClause[1], learntClause[maxIdx]
 		backTrackLevel = s.Level(learntClause[maxIdx].Var())
+		// Swap-in this literal at index 1:
+		learntClause[maxIdx], learntClause[1] = learntClause[1], learntClause[maxIdx]
 	}
+
 	for _, lit := range analyzeToClear {
 		s.Seen[lit.Var()] = false
 	}
@@ -314,29 +376,60 @@ func (s *Solver) Analyze(confl ClauseReference) (learntClause []Lit, backTrackLe
 	return learntClause, backTrackLevel
 }
 
-func (s *Solver) Search() LitBool {
+func (s *Solver) Search(maxConflictCount int) LitBool {
 	if !s.OK {
 		panic("s.OK is false")
 	}
 
+	conflictCount := 0
+
 	for {
 		confl := s.Propagate()
-
 		if confl != ClaRefUndef {
 			//Conflict
+			conflictCount++
 
 			//If the decision level is 0, the problem is unsatisfiable.
-			if s.DecisionLevel() == 0 {
+			if s.decisionLevel() == 0 {
 				return LitBoolFalse
 			}
 
-			/* learntClause := []Lit{}
-			backTrackLevel := math.MaxInt32 */
-			//TODO
-			//Analyze
+			learntClause, backTrackLevel := s.Analyze(confl)
+			s.CancelUntil(backTrackLevel)
 
+			if len(learntClause) == 1 {
+				s.UncheckedEnqueue(learntClause[0], ClaRefUndef)
+			} else {
+				claRef, err := s.ClaAllocator.NewAllocate(learntClause, true)
+				if err != nil {
+					panic(err)
+				}
+				s.LearntClauses[claRef] = true
+				err = s.attachClause(claRef)
+				if err != nil {
+					panic(err)
+				}
+				s.UncheckedEnqueue(learntClause[0], claRef)
+			}
+		} else {
+			//NO CONFLICT
+			if maxConflictCount >= 0 && conflictCount > maxConflictCount {
+				//Restart
+				s.CancelUntil(0)
+				return LitBoolUndef
+			}
+			nextLit := Lit{X: LitUndef}
+
+			if nextLit.X == LitUndef {
+				nextLit = s.pickBranchLit()
+
+				if nextLit.X == LitUndef {
+					// Model found:
+					return LitBoolTrue
+				}
+			}
+			s.newDecisionLevel()
+			s.UncheckedEnqueue(nextLit, ClaRefUndef)
 		}
 	}
-
-	return LitUndef
 }
