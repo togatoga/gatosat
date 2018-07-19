@@ -23,10 +23,11 @@ type Solver struct {
 	OK            bool                     //If FALSE, the constraints are already unsatisfiable. No part of the solver state may be used!
 	Seen          []bool                   //The seen variable for clause learning
 	Model         []LitBool                // If problem is satisfiable, this vector contains the model (if any).
+	Statistics    *Statistics              //Statistics
 }
 
 func NewSolver() *Solver {
-	solver := &Solver{
+	return &Solver{
 		Verbosity:     false,
 		ClaAllocator:  NewClauseAllocator(),
 		Clauses:       make(map[ClauseReference]bool),
@@ -36,8 +37,8 @@ func NewSolver() *Solver {
 		NextVar:       0,
 		VarOrder:      NewHeap(),
 		OK:            true,
+		Statistics:    NewStatistics(),
 	}
-	return solver
 }
 
 func (s *Solver) NewVar() Var {
