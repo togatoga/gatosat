@@ -99,6 +99,8 @@ func (s *Solver) Propagate() ClauseReference {
 		for lastIdx < len(s.Watches[p]) {
 			watcher := s.Watches[p][lastIdx]
 			blocker := watcher.blocker
+
+			s.Statistics.PropagationCount++
 			// Try to avoid inspecting the clause.
 			if s.ValueLit(blocker) == LitBoolTrue {
 				s.Watches[p][copiedIdx] = s.Watches[p][lastIdx]
@@ -268,8 +270,19 @@ func (s *Solver) Solve() LitBool {
 		return LitBoolFalse
 	}
 	status := LitBoolUndef
-	for status == LitBoolUndef {
+	for true {
 		status = s.Search(100)
+		if status != LitBoolUndef {
+			break
+		}
+		s.Statistics.RestartCount++
+	}
+	if status == LitBoolTrue {
+		for i := 0; i < s.NumVars(); i++ {
+			s.Model = append(s.Model, s.ValueVar(Var(i)))
+		}
+	} else if status == LitBoolFalse {
+		s.OK = false
 	}
 	return status
 }
@@ -388,6 +401,7 @@ func (s *Solver) Search(maxConflictCount int) LitBool {
 		confl := s.Propagate()
 		if confl != ClaRefUndef {
 			//Conflict
+			s.Statistics.ConflictCount++
 			conflictCount++
 
 			//If the decision level is 0, the problem is unsatisfiable.
@@ -422,8 +436,8 @@ func (s *Solver) Search(maxConflictCount int) LitBool {
 			nextLit := Lit{X: LitUndef}
 
 			if nextLit.X == LitUndef {
+				s.Statistics.DecisionCount++
 				nextLit = s.pickBranchLit()
-
 				if nextLit.X == LitUndef {
 					// Model found:
 					return LitBoolTrue

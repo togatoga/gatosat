@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/k0kubun/pp"
 	"github.com/urfave/cli"
 )
 
@@ -16,6 +17,11 @@ func GetFlags() []cli.Flag {
 		cli.BoolFlag{
 			Name:  "debug,d",
 			Usage: "Debug mode",
+		},
+
+		cli.BoolFlag{
+			Name:  "no-verbosity,no-verb",
+			Usage: "Superss the output of solver",
 		},
 		cli.StringFlag{
 			Name:  "input-file, in",
@@ -61,12 +67,13 @@ func main() {
 		}
 		in := bufio.NewScanner(fp)
 		solver := NewSolver()
+		solver.Verbosity = c.Bool("no-verbosity")
 		err = parseDimacs(in, solver)
 		if err != nil {
 			return err
 		}
 		fmt.Println(solver.Solve())
-
+		pp.Println(solver.Statistics)
 		return nil
 	}
 
