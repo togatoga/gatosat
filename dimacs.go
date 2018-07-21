@@ -48,12 +48,16 @@ func parseDimacs(in *bufio.Scanner, s *Solver) (err error) {
 	cnt := 0
 	for in.Scan() {
 		line := in.Text()
+		//skip empty line
+		if len(line) == 0 {
+			continue
+		}
 		//skip comment
 		if strings.HasPrefix(line, "c") {
 			continue
 		}
 		if strings.HasPrefix(line, "p cnf") {
-			values := strings.Split(line, " ")
+			values := strings.Fields(line)
 			vars, err = strconv.Atoi(values[2])
 			if err != nil {
 				return err
@@ -68,7 +72,9 @@ func parseDimacs(in *bufio.Scanner, s *Solver) (err error) {
 			if err != nil {
 				return err
 			}
-			s.addClause(lits)
+			if lits != nil {
+				s.addClause(lits)
+			}
 		}
 	}
 	if cnt != clauses {
