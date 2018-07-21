@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 
+	"github.com/urfave/cli"
+
 	"github.com/k0kubun/pp"
 )
 
@@ -26,9 +28,9 @@ type Solver struct {
 	Statistics    *Statistics              //Statistics
 }
 
-func NewSolver() *Solver {
+func NewSolver(c *cli.Context) *Solver {
 	return &Solver{
-		Verbosity:     false,
+		Verbosity:     c.Bool("verbosity"),
 		ClaAllocator:  NewClauseAllocator(),
 		Clauses:       make(map[ClauseReference]bool),
 		LearntClauses: make(map[ClauseReference]bool),
@@ -73,6 +75,10 @@ func (s *Solver) ValueLit(p Lit) LitBool {
 
 func (s *Solver) NumVars() int {
 	return int(s.NextVar)
+}
+
+func (s *Solver) NumClauses() uint64 {
+	return s.Statistics.NumClauses
 }
 
 func (s *Solver) UncheckedEnqueue(p Lit, from ClauseReference) {
@@ -261,7 +267,11 @@ func (s *Solver) attachClause(claRef ClauseReference) (err error) {
 
 	s.Watches[firstLit.Flip()] = append(s.Watches[firstLit.Flip()], NewWatcher(claRef, secondLit))
 	s.Watches[secondLit.Flip()] = append(s.Watches[secondLit.Flip()], NewWatcher(claRef, firstLit))
-
+	if clause.Learnt() {
+		s.Statistics.NumLearnts++
+	} else {
+		s.Statistics.NumClauses++
+	}
 	return nil
 }
 
