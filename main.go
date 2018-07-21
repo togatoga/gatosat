@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/urfave/cli"
 )
@@ -27,6 +29,11 @@ func GetFlags() []cli.Flag {
 			Usage: "Input cnf file for solving(required)",
 			Value: "None",
 		},
+
+		cli.StringFlag{
+			Name:  "result-output-file, out",
+			Usage: "Output file",
+		},
 	}
 }
 
@@ -45,12 +52,25 @@ func printProblemStatistics(s *Solver) {
 	fmt.Printf("c ================================================================================\n")
 }
 
-func printStats(s *Solver) {
+func printStatistics(s *Solver) {
 	fmt.Printf("c ================================================================================\n")
 	fmt.Printf("c restarts: %12d\n", s.Statistics.RestartCount)
 	fmt.Printf("c conflicts: %12d\n", s.Statistics.ConflictCount)
 	fmt.Printf("c decisions: %12d\n", s.Statistics.DecisionCount)
 	fmt.Printf("c propagations: %12d\n", s.Statistics.PropagationCount)
+}
+
+func SetInterupt(s *Solver) {
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		if s.Verbosity {
+			printStatistics(s)
+		}
+		fmt.Println("\ns INDETERMINATE")
+		os.Exit(0)
+	}()
 }
 
 func main() {
@@ -83,6 +103,7 @@ func main() {
 		}
 		in := bufio.NewScanner(fp)
 		solver := NewSolver(c)
+		SetInterupt(solver)
 		err = parseDimacs(in, solver)
 		if err != nil {
 			return err
@@ -91,15 +112,14 @@ func main() {
 			printProblemStatistics(solver)
 		}
 		status := solver.Solve()
+
 		if solver.Verbosity {
-			printStats(solver)
+			printStatistics(solver)
 		}
 		if status == LitBoolTrue {
 			fmt.Println("\ns SATISFIABLE")
 		} else if status == LitBoolFalse {
 			fmt.Println("\ns UNSATISIABLE")
-		} else {
-			fmt.Println("\ns INDETERMINATE")
 		}
 		return nil
 	}
