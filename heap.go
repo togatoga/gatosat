@@ -7,7 +7,7 @@ import (
 type Heap struct {
 	data     []Var     // The content of data
 	indices  []int     // The heap index of Var
-	activity []float32 // The priority of each variable.
+	activity []float64 // The priority of each variable.
 }
 
 func NewHeap() *Heap {
@@ -30,7 +30,7 @@ func (h *Heap) InHeap(x Var) bool {
 	return int(x) < len(h.indices) && h.indices[x] >= 0
 }
 
-func (h *Heap) Activity(x Var) float32 {
+func (h *Heap) Activity(x Var) float64 {
 	return h.activity[x]
 }
 
