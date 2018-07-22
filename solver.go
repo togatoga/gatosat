@@ -253,13 +253,14 @@ func (s *Solver) reduceDB() {
 		return false
 	})
 	copiedIdx := 0
+	remainActivityMaxLimit := s.ClauseActitvyIncreaseRatio / float32(len(s.LearntClauses))
 	for i := 0; i < len(s.LearntClauses); i++ {
 		claRef := s.LearntClauses[i]
 		clause, err := s.ClaAllocator.GetClause(claRef)
 		if err != nil {
 			panic(err)
 		}
-		if clause.Size() > 2 && !s.locked(clause) && (i < len(s.LearntClauses)/2) {
+		if clause.Size() > 2 && !s.locked(clause) && (i < len(s.LearntClauses)/2 || clause.Activity() < remainActivityMaxLimit) {
 			s.Statistics.RemovedClauseCount++
 			s.removeClause(claRef)
 		} else {
