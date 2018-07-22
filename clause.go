@@ -33,6 +33,11 @@ func (c *ClauseAllocator) GetClause(claRef ClauseReference) (clause *Clause, err
 	return nil, fmt.Errorf("The clause is not allocated: %d", claRef)
 }
 
+const (
+	ExistMark   uint = iota
+	DeletedMark uint = iota
+)
+
 //Clause
 type Header struct {
 	Mark     uint
@@ -49,7 +54,7 @@ type Clause struct {
 
 func NewClause(ps []Lit, useExtra, learnt bool) *Clause {
 	var c Clause
-	c.header.Mark = 0
+	c.header.Mark = ExistMark
 	c.header.Learnt = learnt
 	c.header.HasExtra = useExtra
 	c.header.Size = len(ps)
@@ -72,6 +77,10 @@ func (c *Clause) Learnt() bool {
 
 func (c *Clause) HasExtra() bool {
 	return c.header.HasExtra
+}
+
+func (c *Clause) SetMark(mark uint) {
+	c.header.Mark = mark
 }
 
 func (c *Clause) Mark() uint {

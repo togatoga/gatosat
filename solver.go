@@ -312,6 +312,7 @@ func (s *Solver) removeClause(cr ClauseReference) {
 	if s.locked(c) {
 		s.VarData[firstLit.Var()].Reason = ClaRefUndef
 	}
+	c.SetMark(DeletedMark)
 	delete(s.ClaAllocator.Clauses, cr)
 }
 
