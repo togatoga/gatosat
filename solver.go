@@ -34,6 +34,7 @@ type Solver struct {
 	ClauseActitvyIncreaseRatio float32            // Amount to bump next clause with
 	ClauseActitvyDecayRatio    float32            //
 	MaxNumLearnt               float64            //
+	LearntSizeAdjustConflict   float64            //
 	Seen                       []bool             //The seen variable for clause learning
 	Model                      []LitBool          // If problem is satisfiable, this vector contains the model (if any).
 	Statistics                 *Statistics        //Statistics
@@ -54,6 +55,8 @@ func NewSolver(c *cli.Context) *Solver {
 		VarDecayRatio:              0.95,
 		ClauseActitvyIncreaseRatio: 1.0,
 		ClauseActitvyDecayRatio:    0.999,
+		MaxNumLearnt:               100,
+		LearntSizeAdjustConflict:   100,
 		Statistics:                 NewStatistics(),
 	}
 }
@@ -730,7 +733,10 @@ func (s *Solver) Search(maxConflictCount int) LitBool {
 
 			s.varDecayActivity()
 			s.clauseDecayActivity()
-
+			if conflictCount >= int(s.LearntSizeAdjustConflict) {
+				s.LearntSizeAdjustConflict *= 1.5
+				s.MaxNumLearnt *= 1.1
+			}
 		} else {
 			//NO CONFLICT
 			if maxConflictCount >= 0 && conflictCount > maxConflictCount {
@@ -745,9 +751,8 @@ func (s *Solver) Search(maxConflictCount int) LitBool {
 			}
 			*/
 			if len(s.LearntClauses)-s.NumAssigns() >= int(s.MaxNumLearnt) {
-				//Rduce the set of learnt clauses:
+				//Reduce the set of learnt clauses:
 				s.Statistics.ReduceDBCount++
-				s.MaxNumLearnt *= 1.05
 				s.reduceDB()
 			}
 			nextLit := Lit{X: LitUndef}
