@@ -453,6 +453,7 @@ func (s *Solver) Solve() LitBool {
 	} else if status == LitBoolFalse {
 		s.OK = false
 	}
+	s.CancelUntil(0)
 	return status
 }
 

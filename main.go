@@ -79,6 +79,18 @@ func SetInterupt(s *Solver) {
 	}()
 }
 
+func printModel(s *Solver) {
+	fmt.Print("v ")
+	for i := 0; i < s.NumVars(); i++ {
+		if s.Model[i] == LitBoolTrue {
+			fmt.Printf("%d ", i+1)
+		} else {
+			fmt.Printf("%d ", -(i + 1))
+		}
+	}
+	fmt.Print("0\n")
+}
+
 func init() {
 	CurrentTime = time.Now()
 }
@@ -128,6 +140,7 @@ func main() {
 		}
 		if status == LitBoolTrue {
 			fmt.Println("\ns SATISFIABLE")
+			printModel(solver)
 		} else if status == LitBoolFalse {
 			fmt.Println("\ns UNSATISIABLE")
 		}
