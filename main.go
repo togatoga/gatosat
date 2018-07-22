@@ -142,7 +142,7 @@ func main() {
 			fmt.Println("\ns SATISFIABLE")
 			printModel(solver)
 		} else if status == LitBoolFalse {
-			fmt.Println("\ns UNSATISIABLE")
+			fmt.Println("\ns UNSATISFIABLE")
 		}
 		return nil
 	}
