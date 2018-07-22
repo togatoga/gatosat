@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"time"
 
 	"github.com/urfave/cli"
 
@@ -492,6 +493,28 @@ func (s *Solver) Solve() LitBool {
 	s.MaxNumLearnt = float64(s.NumClauses()) * 0.3
 	status := LitBoolUndef
 	currentRestartCount := 0
+
+	if s.Verbosity {
+		go func() {
+			fmt.Printf("c ============================[ Search Statistics ]=============================\n")
+			fmt.Printf("c | Restarts | Conflicts  | ReduceDB   | Current Leafnt  | Binary Learnt | Unit Learnt |\n")
+			ticker := time.NewTicker(3 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					restartCount := s.Statistics.RestartCount
+					conflictCount := s.Statistics.ConflictCount
+					currentNumLearnts := len(s.LearntClauses)
+					numUnitLearnts := s.Statistics.NumUnitLearnts
+					numBinaryLearnts := s.Statistics.NumBinaryLearnts
+					reduceDBCount := s.Statistics.ReduceDBCount
+					fmt.Printf("c | %8d | %10d | %10d |      %10d |     %9d | %5d / %d |\n", restartCount, conflictCount, reduceDBCount, currentNumLearnts, numBinaryLearnts, numUnitLearnts, s.NumVars())
+				}
+			}
+		}()
+	}
+
 	for true {
 		restartBase := s.luby(s.RestartIncreaseRatio, currentRestartCount)
 		maxConflictCount := int(restartBase) * s.RestartFirst
@@ -679,8 +702,12 @@ func (s *Solver) Search(maxConflictCount int) LitBool {
 			s.CancelUntil(backTrackLevel)
 
 			if len(learntClause) == 1 {
+				s.Statistics.NumUnitLearnts++
 				s.UncheckedEnqueue(learntClause[0], ClaRefUndef)
 			} else {
+				if len(learntClause) == 2 {
+					s.Statistics.NumBinaryLearnts++
+				}
 				claRef, err := s.ClaAllocator.NewAllocate(learntClause, true)
 				if err != nil {
 					panic(err)
@@ -717,7 +744,7 @@ func (s *Solver) Search(maxConflictCount int) LitBool {
 			if len(s.LearntClauses)-s.NumAssigns() >= int(s.MaxNumLearnt) {
 				//Rduce the set of learnt clauses:
 				s.Statistics.ReduceDBCount++
-				s.MaxNumLearnt *= 1.05
+				s.MaxNumLearnt *= 1.4
 				s.reduceDB()
 			}
 			nextLit := Lit{X: LitUndef}
