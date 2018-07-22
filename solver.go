@@ -168,11 +168,11 @@ func (s *Solver) Propagate() ClauseReference {
 		s.Qhead++
 		lastIdx := 0
 		copiedIdx := 0
+		s.Statistics.PropagationCount++
 		for lastIdx < len(s.Watches[p]) {
 			watcher := s.Watches[p][lastIdx]
 			blocker := s.Watches[p][lastIdx].blocker
 
-			s.Statistics.PropagationCount++
 			// Try to avoid inspecting the clause.
 			if s.ValueLit(blocker) == LitBoolTrue {
 				s.Watches[p][copiedIdx] = s.Watches[p][lastIdx]
