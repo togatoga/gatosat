@@ -435,6 +435,7 @@ func (s *Solver) addClause(lits []Lit) bool {
 		if confl := s.Propagate(); confl != ClaRefUndef {
 			s.OK = false
 		}
+		return false
 	} else {
 		claRef, err := s.ClaAllocator.NewAllocate(lits, false)
 		if err != nil {
