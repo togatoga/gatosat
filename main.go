@@ -7,10 +7,12 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/urfave/cli"
 )
 
+var CurrentTime time.Time
 var DebugMode bool
 
 func GetFlags() []cli.Flag {
@@ -53,13 +55,15 @@ func printProblemStatistics(s *Solver) {
 }
 
 func printStatistics(s *Solver) {
+	elapsedTimeSeconds := time.Now().Sub(CurrentTime).Seconds()
 	fmt.Printf("c ================================================================================\n")
 	fmt.Printf("c restarts: %12d\n", s.Statistics.RestartCount)
-	fmt.Printf("c conflicts: %12d\n", s.Statistics.ConflictCount)
-	fmt.Printf("c decisions: %12d\n", s.Statistics.DecisionCount)
-	fmt.Printf("c propagations: %12d\n", s.Statistics.PropagationCount)
+	fmt.Printf("c conflicts: %12d (%.02f / sec)\n", s.Statistics.ConflictCount, float64(s.Statistics.ConflictCount)/elapsedTimeSeconds)
+	fmt.Printf("c decisions: %12d (%.02f / sec)\n", s.Statistics.DecisionCount, float64(s.Statistics.DecisionCount)/elapsedTimeSeconds)
+	fmt.Printf("c propagations: %12d (%.02f / sec)\n", s.Statistics.PropagationCount, float64(s.Statistics.PropagationCount)/elapsedTimeSeconds)
 	fmt.Printf("c reduce DB: %12d\n", s.Statistics.ReduceDBCount)
 	fmt.Printf("c removed clause: %12d\n", s.Statistics.RemovedClauseCount)
+	fmt.Printf("c cpu time: %12f\n", elapsedTimeSeconds)
 }
 
 func SetInterupt(s *Solver) {
@@ -73,6 +77,10 @@ func SetInterupt(s *Solver) {
 		fmt.Println("\ns INDETERMINATE")
 		os.Exit(0)
 	}()
+}
+
+func init() {
+	CurrentTime = time.Now()
 }
 
 func main() {
