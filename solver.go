@@ -167,7 +167,7 @@ func (s *Solver) Propagate() ClauseReference {
 		copiedIdx := 0
 		for lastIdx < len(s.Watches[p]) {
 			watcher := s.Watches[p][lastIdx]
-			blocker := watcher.blocker
+			blocker := s.Watches[p][lastIdx].blocker
 
 			s.Statistics.PropagationCount++
 			// Try to avoid inspecting the clause.
@@ -188,8 +188,8 @@ func (s *Solver) Propagate() ClauseReference {
 			if clause.At(0) == falseLit {
 				clause.Data[0], clause.Data[1] = clause.Data[1], falseLit
 			}
-			if clause.At(1) != falseLit {
-				panic(fmt.Errorf("The 1th literal is not falseLit: %v %v", clause.At(1), falseLit))
+			if v := clause.At(1); !v.Equal(falseLit) {
+				panic(fmt.Errorf("The 1th literal is not falseLit: %v %v", v, falseLit))
 			}
 			lastIdx++
 
@@ -255,6 +255,7 @@ func (s *Solver) reduceDB() {
 		}
 		return false
 	})
+
 	copiedIdx := 0
 	remainActivityMaxLimit := s.ClauseActitvyIncreaseRatio / float32(len(s.LearntClauses))
 	for i := 0; i < len(s.LearntClauses); i++ {
@@ -264,8 +265,8 @@ func (s *Solver) reduceDB() {
 			panic(err)
 		}
 		if clause.Size() > 2 && !s.locked(clause) && (i < len(s.LearntClauses)/2 || clause.Activity() < remainActivityMaxLimit) {
-			s.Statistics.RemovedClauseCount++
 			s.removeClause(claRef)
+			s.Statistics.RemovedClauseCount++
 		} else {
 			s.LearntClauses[copiedIdx] = claRef
 			copiedIdx++
@@ -382,11 +383,12 @@ func (s *Solver) pickBranchLit() Lit {
 		}
 		nextVar = s.VarOrder.RemoveMin()
 	}
+
 	if nextVar == VarUndef {
 		return Lit{X: LitUndef}
 	}
 
-	//The default polarity is true. (x1 = true)
+	//The default polarity is true. (!x1 = true)
 	sign := true
 	if s.Polarity[nextVar] == LitBoolTrue {
 		sign = false
@@ -557,7 +559,7 @@ func (s *Solver) InsertVarOrder(x Var) {
 	}
 }
 
-func (s *Solver) Analyze(confl ClauseReference) (learntClause []Lit, backTrackLevel int) {
+func (s *Solver) analyze(confl ClauseReference) (learntClause []Lit, backTrackLevel int) {
 
 	p := Lit{X: LitUndef}
 	pathConflict := 0
@@ -699,7 +701,7 @@ func (s *Solver) Search(maxConflictCount int) LitBool {
 				return LitBoolFalse
 			}
 
-			learntClause, backTrackLevel := s.Analyze(confl)
+			learntClause, backTrackLevel := s.analyze(confl)
 			s.CancelUntil(backTrackLevel)
 
 			if len(learntClause) == 1 {
@@ -737,15 +739,15 @@ func (s *Solver) Search(maxConflictCount int) LitBool {
 				return LitBoolUndef
 			}
 
-			//Simplify the set of problem clauses
+			/* 	//Simplify the set of problem clauses
 			if s.decisionLevel() == 0 && !s.simplify() {
 				return LitBoolFalse
 			}
-
+			*/
 			if len(s.LearntClauses)-s.NumAssigns() >= int(s.MaxNumLearnt) {
 				//Rduce the set of learnt clauses:
 				s.Statistics.ReduceDBCount++
-				s.MaxNumLearnt *= 1.005
+				s.MaxNumLearnt *= 1.05
 				s.reduceDB()
 			}
 			nextLit := Lit{X: LitUndef}
