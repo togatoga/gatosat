@@ -68,7 +68,7 @@ func NewClause(ps []Lit, useExtra, learnt bool) *Clause {
 }
 
 func (c *Clause) Size() int {
-	return c.header.Size
+	return len(c.Data)
 }
 
 func (c *Clause) Learnt() bool {
