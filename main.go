@@ -58,6 +58,8 @@ func printStatistics(s *Solver) {
 	fmt.Printf("c conflicts: %12d\n", s.Statistics.ConflictCount)
 	fmt.Printf("c decisions: %12d\n", s.Statistics.DecisionCount)
 	fmt.Printf("c propagations: %12d\n", s.Statistics.PropagationCount)
+	fmt.Printf("c reduce DB: %12d\n", s.Statistics.ReduceDBCount)
+	fmt.Printf("c removed clause: %12d\n", s.Statistics.RemovedClauseCount)
 }
 
 func SetInterupt(s *Solver) {

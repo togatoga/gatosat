@@ -30,7 +30,7 @@ func (c *ClauseAllocator) GetClause(claRef ClauseReference) (clause *Clause, err
 	if clause, ok := c.Clauses[claRef]; ok {
 		return clause, nil
 	}
-	return nil, fmt.Errorf("This clause is not allocated: %d", claRef)
+	return nil, fmt.Errorf("The clause is not allocated: %d", claRef)
 }
 
 //Clause

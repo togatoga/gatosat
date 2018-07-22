@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"sort"
 
 	"github.com/urfave/cli"
 
@@ -11,23 +12,24 @@ import (
 
 type Solver struct {
 	Verbosity            bool
-	ClaAllocator         *ClauseAllocator         //The allocator for clause
-	Clauses              map[ClauseReference]bool //List of problem clauses.
-	LearntClauses        map[ClauseReference]bool //List of learnt clauses.
-	Watches              map[Lit][]*Watcher       //'watches[lit]' is a list of constraints watching 'lit' (will go there if literal becomes true).
-	Assigns              []LitBool                //The current assignments.
-	Qhead                int                      //Head of queue (as index into the trail -- no more explicit propagation queue in MiniSat).
-	Trail                []Lit                    //Assignment stack; stores all assigments made in the order the were made.
-	TrailLim             []int                    //Separator indices for different decision levels in 'trail'.
-	NextVar              Var                      //Next variable to be created.
-	Decision             []bool                   // A priority queue of variables ordered with respect to the variable activity.
-	VarData              []VarData                //Stores reason and level for each variable.
-	VarOrder             *Heap                    // A priority queue of variables ordered with respect to the variable activity.
-	OK                   bool                     //If FALSE, the constraints are already unsatisfiable. No part of the solver state may be used!
-	RestartFirst         int                      // The initial restart limit.
-	RestartIncreaseRatio float64                  // The factor with which the restart limit is multiplied in each restart.                    (default 1.5)
-	VarIncreaseRatio     float64                  // Amount to bump next variable with.
+	ClaAllocator         *ClauseAllocator   //The allocator for clause
+	Clauses              []ClauseReference  //List of problem clauses.
+	LearntClauses        []ClauseReference  //List of learnt clauses.
+	Watches              map[Lit][]*Watcher //'watches[lit]' is a list of constraints watching 'lit' (will go there if literal becomes true).
+	Assigns              []LitBool          //The current assignments.
+	Qhead                int                //Head of queue (as index into the trail -- no more explicit propagation queue in MiniSat).
+	Trail                []Lit              //Assignment stack; stores all assigments made in the order the were made.
+	TrailLim             []int              //Separator indices for different decision levels in 'trail'.
+	NextVar              Var                //Next variable to be created.
+	Decision             []bool             // A priority queue of variables ordered with respect to the variable activity.
+	VarData              []VarData          //Stores reason and level for each variable.
+	VarOrder             *Heap              // A priority queue of variables ordered with respect to the variable activity.
+	OK                   bool               //If FALSE, the constraints are already unsatisfiable. No part of the solver state may be used!
+	RestartFirst         int                // The initial restart limit.
+	RestartIncreaseRatio float64            // The factor with which the restart limit is multiplied in each restart.                    (default 1.5)
+	VarIncreaseRatio     float64            // Amount to bump next variable with.
 	VarDecayRatio        float64
+	MaxNumLearnt         float64
 	Seen                 []bool      //The seen variable for clause learning
 	Model                []LitBool   // If problem is satisfiable, this vector contains the model (if any).
 	Statistics           *Statistics //Statistics
@@ -37,8 +39,6 @@ func NewSolver(c *cli.Context) *Solver {
 	return &Solver{
 		Verbosity:            c.Bool("verbosity"),
 		ClaAllocator:         NewClauseAllocator(),
-		Clauses:              make(map[ClauseReference]bool),
-		LearntClauses:        make(map[ClauseReference]bool),
 		Watches:              make(map[Lit][]*Watcher),
 		Qhead:                0,
 		NextVar:              0,
@@ -48,6 +48,7 @@ func NewSolver(c *cli.Context) *Solver {
 		RestartIncreaseRatio: 2,
 		VarIncreaseRatio:     1.0,
 		VarDecayRatio:        0.95,
+		MaxNumLearnt:         100,
 		Statistics:           NewStatistics(),
 	}
 }
@@ -110,6 +111,10 @@ func (s *Solver) NumVars() int {
 
 func (s *Solver) NumClauses() uint64 {
 	return s.Statistics.NumClauses
+}
+
+func (s *Solver) NumAssigns() int {
+	return len(s.Trail)
 }
 
 func (s *Solver) UncheckedEnqueue(p Lit, from ClauseReference) {
@@ -203,6 +208,85 @@ func (s *Solver) Propagate() ClauseReference {
 	return confl
 }
 
+func (s *Solver) reduceDB() {
+	//sort
+	sort.Slice(s.LearntClauses, func(i, j int) bool {
+		x := s.LearntClauses[i]
+		y := s.LearntClauses[j]
+		clauseX, err := s.ClaAllocator.GetClause(x)
+		if err != nil {
+			panic(err)
+		}
+		clauseY, err := s.ClaAllocator.GetClause(y)
+		if err != nil {
+			panic(err)
+		}
+		if clauseX.Size() > 2 {
+			if clauseY.Size() == 2 || clauseX.Activity() < clauseY.Activity() {
+				return true
+			}
+		}
+		return false
+	})
+	copiedIdx := 0
+	for i := 0; i < len(s.LearntClauses); i++ {
+		claRef := s.LearntClauses[i]
+		clause, err := s.ClaAllocator.GetClause(claRef)
+		if err != nil {
+			panic(err)
+		}
+		if clause.Size() > 2 && !s.locked(clause) && (i < len(s.LearntClauses)/2) {
+			s.Statistics.RemovedClauseCount++
+			s.removeClause(claRef)
+		} else {
+			s.LearntClauses[copiedIdx] = claRef
+			copiedIdx++
+		}
+	}
+	s.LearntClauses = s.LearntClauses[:copiedIdx]
+
+}
+
+func (s *Solver) detachClause(cr ClauseReference) {
+	c, err := s.ClaAllocator.GetClause(cr)
+	if err != nil {
+		panic(err)
+	}
+	if c.Size() <= 1 {
+		panic(fmt.Errorf("The size of clause is less than 2: %d", c.Size()))
+	}
+	firstLit := c.At(0)
+	secondLit := c.At(1)
+	RemoveWatcher(s.Watches, firstLit.Flip(), *NewWatcher(cr, secondLit))
+	RemoveWatcher(s.Watches, secondLit.Flip(), *NewWatcher(cr, firstLit))
+	if c.Learnt() {
+		s.Statistics.NumLearnts--
+	} else {
+		s.Statistics.NumClauses--
+	}
+}
+
+func (s *Solver) locked(c *Clause) bool {
+	firstLit := c.At(0)
+	if s.ValueLit(firstLit) == LitBoolTrue && s.Reason(firstLit.Var()) != ClaRefUndef {
+		return true
+	}
+	return false
+}
+
+func (s *Solver) removeClause(cr ClauseReference) {
+	c, err := s.ClaAllocator.GetClause(cr)
+	if err != nil {
+		panic(err)
+	}
+	s.detachClause(cr)
+	firstLit := c.At(0)
+	if s.locked(c) {
+		s.VarData[firstLit.Var()].Reason = ClaRefUndef
+	}
+	delete(s.ClaAllocator.Clauses, cr)
+}
+
 func (s *Solver) CancelUntil(level int) {
 	if s.decisionLevel() > level {
 		for c := len(s.Trail) - 1; c >= s.TrailLim[level]; c-- {
@@ -275,7 +359,7 @@ func (s *Solver) addClause(lits []Lit) bool {
 		if err != nil {
 			panic(err)
 		}
-		s.Clauses[claRef] = true
+		s.Clauses = append(s.Clauses, claRef)
 		err = s.attachClause(claRef)
 		if err != nil {
 			panic(err)
@@ -479,7 +563,7 @@ func (s *Solver) Search(maxConflictCount int) LitBool {
 				if err != nil {
 					panic(err)
 				}
-				s.LearntClauses[claRef] = true
+				s.LearntClauses = append(s.LearntClauses, claRef)
 				err = s.attachClause(claRef)
 				if err != nil {
 					panic(err)
@@ -495,6 +579,13 @@ func (s *Solver) Search(maxConflictCount int) LitBool {
 				//Restart
 				s.CancelUntil(0)
 				return LitBoolUndef
+			}
+
+			if len(s.LearntClauses)-s.NumAssigns() >= int(s.MaxNumLearnt) {
+				//Rduce the set of learnt clauses:
+				s.Statistics.ReduceDBCount++
+				s.MaxNumLearnt *= 1.05
+				s.reduceDB()
 			}
 			nextLit := Lit{X: LitUndef}
 
