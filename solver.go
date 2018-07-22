@@ -53,7 +53,6 @@ func NewSolver(c *cli.Context) *Solver {
 		VarDecayRatio:              0.95,
 		ClauseActitvyIncreaseRatio: 1.0,
 		ClauseActitvyDecayRatio:    0.999,
-		MaxNumLearnt:               100,
 		Statistics:                 NewStatistics(),
 	}
 }
@@ -489,6 +488,8 @@ func (s *Solver) Solve() LitBool {
 	if !s.OK {
 		return LitBoolFalse
 	}
+
+	s.MaxNumLearnt = float64(s.NumClauses()) * 0.3
 	status := LitBoolUndef
 	currentRestartCount := 0
 	for true {
@@ -718,7 +719,6 @@ func (s *Solver) Search(maxConflictCount int) LitBool {
 				s.Statistics.ReduceDBCount++
 				s.MaxNumLearnt *= 1.05
 				s.reduceDB()
-				//fmt.Println(s.MaxNumLearnt, len(s.LearntClauses))
 			}
 			nextLit := Lit{X: LitUndef}
 
