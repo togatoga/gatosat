@@ -371,6 +371,11 @@ func (s *Solver) addClause(lits []Lit) bool {
 	if !s.OK {
 		return false
 	}
+	//The speed of solver become too slow!!
+	/* sort.Slice(lits, func(i, j int) bool {
+		return lits[i].X < lits[j].X
+	}) */
+
 	// Check if clause is satisfied and remove false/duplicate literals:
 	p := Lit{X: LitUndef}
 	copiedIdx := 0
