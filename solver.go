@@ -533,12 +533,33 @@ func (s *Solver) Analyze(confl ClauseReference) (learntClause []Lit, backTrackLe
 		}
 	}
 	learntClause[0] = p.Flip()
-
-	//TODO
-	//Simplify conflict clause:
-
 	analyzeToClear := make([]Lit, len(learntClause))
 	copy(analyzeToClear, learntClause)
+
+	//Simplify conflict clause
+	//Basic
+	copiedIdx := 1
+	for i := 1; i < len(learntClause); i++ {
+		x := learntClause[i].Var()
+		if s.Reason(x) == ClaRefUndef {
+			learntClause[copiedIdx] = learntClause[i]
+			copiedIdx++
+		} else {
+			c, err := s.ClaAllocator.GetClause(s.Reason(x))
+			if err != nil {
+				panic(err)
+			}
+			for k := 1; k < c.Size(); k++ {
+				v := c.At(k)
+				if !s.Seen[v.Var()] && s.Level(v.Var()) > 0 {
+					learntClause[copiedIdx] = learntClause[i]
+					copiedIdx++
+					break
+				}
+			}
+		}
+	}
+	learntClause = learntClause[:copiedIdx]
 
 	if len(learntClause) == 1 {
 		backTrackLevel = 0
