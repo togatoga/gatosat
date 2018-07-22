@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/urfave/cli"
 
@@ -9,41 +10,45 @@ import (
 )
 
 type Solver struct {
-	Verbosity        bool
-	ClaAllocator     *ClauseAllocator         //The allocator for clause
-	Clauses          map[ClauseReference]bool //List of problem clauses.
-	LearntClauses    map[ClauseReference]bool //List of learnt clauses.
-	Watches          map[Lit][]*Watcher       //'watches[lit]' is a list of constraints watching 'lit' (will go there if literal becomes true).
-	Assigns          []LitBool                //The current assignments.
-	Qhead            int                      //Head of queue (as index into the trail -- no more explicit propagation queue in MiniSat).
-	Trail            []Lit                    //Assignment stack; stores all assigments made in the order the were made.
-	TrailLim         []int                    //Separator indices for different decision levels in 'trail'.
-	NextVar          Var                      //Next variable to be created.
-	Decision         []bool                   // A priority queue of variables ordered with respect to the variable activity.
-	VarData          []VarData                //Stores reason and level for each variable.
-	VarOrder         *Heap                    // A priority queue of variables ordered with respect to the variable activity.
-	OK               bool                     //If FALSE, the constraints are already unsatisfiable. No part of the solver state may be used!
-	VarIncreaseRatio float64                  // Amount to bump next variable with.
-	VarDecayRatio    float64
-	Seen             []bool      //The seen variable for clause learning
-	Model            []LitBool   // If problem is satisfiable, this vector contains the model (if any).
-	Statistics       *Statistics //Statistics
+	Verbosity            bool
+	ClaAllocator         *ClauseAllocator         //The allocator for clause
+	Clauses              map[ClauseReference]bool //List of problem clauses.
+	LearntClauses        map[ClauseReference]bool //List of learnt clauses.
+	Watches              map[Lit][]*Watcher       //'watches[lit]' is a list of constraints watching 'lit' (will go there if literal becomes true).
+	Assigns              []LitBool                //The current assignments.
+	Qhead                int                      //Head of queue (as index into the trail -- no more explicit propagation queue in MiniSat).
+	Trail                []Lit                    //Assignment stack; stores all assigments made in the order the were made.
+	TrailLim             []int                    //Separator indices for different decision levels in 'trail'.
+	NextVar              Var                      //Next variable to be created.
+	Decision             []bool                   // A priority queue of variables ordered with respect to the variable activity.
+	VarData              []VarData                //Stores reason and level for each variable.
+	VarOrder             *Heap                    // A priority queue of variables ordered with respect to the variable activity.
+	OK                   bool                     //If FALSE, the constraints are already unsatisfiable. No part of the solver state may be used!
+	RestartFirst         int                      // The initial restart limit.
+	RestartIncreaseRatio float64                  // The factor with which the restart limit is multiplied in each restart.                    (default 1.5)
+	VarIncreaseRatio     float64                  // Amount to bump next variable with.
+	VarDecayRatio        float64
+	Seen                 []bool      //The seen variable for clause learning
+	Model                []LitBool   // If problem is satisfiable, this vector contains the model (if any).
+	Statistics           *Statistics //Statistics
 }
 
 func NewSolver(c *cli.Context) *Solver {
 	return &Solver{
-		Verbosity:        c.Bool("verbosity"),
-		ClaAllocator:     NewClauseAllocator(),
-		Clauses:          make(map[ClauseReference]bool),
-		LearntClauses:    make(map[ClauseReference]bool),
-		Watches:          make(map[Lit][]*Watcher),
-		Qhead:            0,
-		NextVar:          0,
-		VarOrder:         NewHeap(),
-		OK:               true,
-		VarIncreaseRatio: 1.0,
-		VarDecayRatio:    0.95,
-		Statistics:       NewStatistics(),
+		Verbosity:            c.Bool("verbosity"),
+		ClaAllocator:         NewClauseAllocator(),
+		Clauses:              make(map[ClauseReference]bool),
+		LearntClauses:        make(map[ClauseReference]bool),
+		Watches:              make(map[Lit][]*Watcher),
+		Qhead:                0,
+		NextVar:              0,
+		VarOrder:             NewHeap(),
+		OK:                   true,
+		RestartFirst:         100,
+		RestartIncreaseRatio: 2,
+		VarIncreaseRatio:     1.0,
+		VarDecayRatio:        0.95,
+		Statistics:           NewStatistics(),
 	}
 }
 
@@ -301,17 +306,36 @@ func (s *Solver) attachClause(claRef ClauseReference) (err error) {
 	return nil
 }
 
+func (s *Solver) luby(y float64, x int) float64 {
+	var seq, size int
+
+	for size, seq = 1, 0; size < x+1; seq, size = seq+1, 2*size+1 {
+	}
+
+	for size-1 != x {
+		size = (size - 1) >> 1
+		seq--
+		x = x % size
+	}
+	return math.Pow(y, float64(seq))
+}
+
 func (s *Solver) Solve() LitBool {
 	if !s.OK {
 		return LitBoolFalse
 	}
 	status := LitBoolUndef
+	currentRestartCount := 0
 	for true {
-		status = s.Search(100 * int(s.Statistics.RestartCount+1))
+		restartBase := s.luby(s.RestartIncreaseRatio, currentRestartCount)
+		maxConflictCount := int(restartBase) * s.RestartFirst
+
+		status = s.Search(maxConflictCount)
 		if status != LitBoolUndef {
 			break
 		}
 		s.Statistics.RestartCount++
+		currentRestartCount++
 	}
 	if status == LitBoolTrue {
 		for i := 0; i < s.NumVars(); i++ {
