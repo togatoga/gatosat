@@ -17,6 +17,7 @@ type Solver struct {
 	LearntClauses              []ClauseReference  //List of learnt clauses.
 	Watches                    map[Lit][]*Watcher //'watches[lit]' is a list of constraints watching 'lit' (will go there if literal becomes true).
 	Assigns                    []LitBool          //The current assignments.
+	Polarity                   []LitBool          //The preferred polarity of each variable.
 	Qhead                      int                //Head of queue (as index into the trail -- no more explicit propagation queue in MiniSat).
 	Trail                      []Lit              //Assignment stack; stores all assigments made in the order the were made.
 	TrailLim                   []int              //Separator indices for different decision levels in 'trail'.
@@ -60,7 +61,9 @@ func NewSolver(c *cli.Context) *Solver {
 func (s *Solver) NewVar() Var {
 	v := s.NextVar
 	s.NextVar++
+
 	s.Assigns = append(s.Assigns, LitBoolUndef)
+	s.Polarity = append(s.Polarity, LitBoolFalse)
 	s.VarData = append(s.VarData, *NewVarData(ClaRefUndef, 0))
 	s.Seen = append(s.Seen, false)
 	s.Decision = append(s.Decision, true)
@@ -317,7 +320,12 @@ func (s *Solver) CancelUntil(level int) {
 		for c := len(s.Trail) - 1; c >= s.TrailLim[level]; c-- {
 			x := s.Trail[c].Var()
 			s.Assigns[x] = LitBoolUndef
-			//TODO Phase Saving
+
+			if s.Trail[c].Sign() {
+				s.Polarity[x] = LitBoolFalse
+			} else {
+				s.Polarity[x] = LitBoolTrue
+			}
 			s.InsertVarOrder(x)
 		}
 		s.Qhead = s.TrailLim[level]
@@ -340,7 +348,12 @@ func (s *Solver) pickBranchLit() Lit {
 		return Lit{X: LitUndef}
 	}
 
-	return *NewLit(nextVar, true)
+	//The default polarity is true. (x1 = true)
+	sign := true
+	if s.Polarity[nextVar] == LitBoolTrue {
+		sign = false
+	}
+	return *NewLit(nextVar, sign)
 }
 
 func (s *Solver) newDecisionLevel() {
