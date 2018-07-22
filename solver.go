@@ -497,7 +497,7 @@ func (s *Solver) Solve() LitBool {
 	if s.Verbosity {
 		go func() {
 			fmt.Printf("c ============================[ Search Statistics ]=============================\n")
-			fmt.Printf("c | Restarts | Conflicts  | ReduceDB   | Current Leafnt  | Binary Learnt | Unit Learnt |\n")
+			fmt.Printf("c | Restarts | Conflicts  | ReduceDB   | Current Learnt  | Binary Learnt | Unit Learnt |\n")
 			ticker := time.NewTicker(3 * time.Second)
 			defer ticker.Stop()
 			for {
