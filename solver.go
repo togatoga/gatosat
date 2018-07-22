@@ -744,7 +744,7 @@ func (s *Solver) Search(maxConflictCount int) LitBool {
 			if len(s.LearntClauses)-s.NumAssigns() >= int(s.MaxNumLearnt) {
 				//Rduce the set of learnt clauses:
 				s.Statistics.ReduceDBCount++
-				s.MaxNumLearnt *= 1.4
+				s.MaxNumLearnt *= 1.005
 				s.reduceDB()
 			}
 			nextLit := Lit{X: LitUndef}
