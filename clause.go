@@ -91,7 +91,7 @@ func (c *Clause) At(i int) Lit {
 	return c.Data[i]
 }
 
-func (c *Clause) Last(i int) Lit {
+func (c *Clause) Last() Lit {
 	return c.Data[c.Size()-1]
 }
 

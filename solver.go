@@ -272,7 +272,35 @@ func (s *Solver) reduceDB() {
 		}
 	}
 	s.LearntClauses = s.LearntClauses[:copiedIdx]
+}
 
+func (s *Solver) removeSatisfied(data *[]ClauseReference) {
+	copiedIdx := 0
+
+	for lastIdx := 0; lastIdx < len(*data); lastIdx++ {
+		c, err := s.ClaAllocator.GetClause((*data)[lastIdx])
+		if err != nil {
+			panic(err)
+		}
+		if s.satisfied(c) {
+			s.removeClause((*data)[lastIdx])
+		} else {
+			//Trim Clause
+			if !(s.ValueLit(c.At(0)) == LitBoolUndef && s.ValueLit(c.At(1)) == LitBoolUndef) {
+				panic(fmt.Errorf("The 0th and 1th of clause value is not LitBoolUndef: v1: %d = %d v2: %d = %d", c.At(0), s.ValueLit(c.At(0)), c.At(1), s.ValueLit(c.At(1))))
+			}
+			for k := 2; k < c.Size(); k++ {
+				if s.ValueLit(c.At(k)) == LitBoolFalse {
+					c.Data[k] = c.Last()
+					k--
+					c.Data = c.Data[:c.Size()-1]
+				}
+			}
+			(*data)[copiedIdx] = (*data)[lastIdx]
+			copiedIdx++
+		}
+	}
+	(*data) = (*data)[:copiedIdx]
 }
 
 func (s *Solver) detachClause(cr ClauseReference) {
@@ -298,6 +326,15 @@ func (s *Solver) locked(c *Clause) bool {
 	firstLit := c.At(0)
 	if s.ValueLit(firstLit) == LitBoolTrue && s.Reason(firstLit.Var()) != ClaRefUndef {
 		return true
+	}
+	return false
+}
+
+func (s *Solver) satisfied(c *Clause) bool {
+	for i := 0; i < c.Size(); i++ {
+		if s.ValueLit(c.At(i)) == LitBoolTrue {
+			return true
+		}
 	}
 	return false
 }
@@ -603,6 +640,21 @@ func (s *Solver) Analyze(confl ClauseReference) (learntClause []Lit, backTrackLe
 	return learntClause, backTrackLevel
 }
 
+func (s *Solver) simplify() bool {
+	if s.decisionLevel() != 0 {
+		panic(fmt.Errorf("The decision level is not zero: %d", s.decisionLevel()))
+	}
+
+	if !s.OK || s.Propagate() != ClaRefUndef {
+		s.OK = false
+		return false
+	}
+
+	s.removeSatisfied(&s.LearntClauses)
+	s.removeSatisfied(&s.Clauses)
+	return true
+}
+
 func (s *Solver) Search(maxConflictCount int) LitBool {
 	if !s.OK {
 		panic("s.OK is false")
@@ -654,6 +706,11 @@ func (s *Solver) Search(maxConflictCount int) LitBool {
 				//Restart
 				s.CancelUntil(0)
 				return LitBoolUndef
+			}
+
+			//Simplify the set of problem clauses
+			if s.decisionLevel() == 0 && !s.simplify() {
+				return LitBoolFalse
 			}
 
 			if len(s.LearntClauses)-s.NumAssigns() >= int(s.MaxNumLearnt) {
