@@ -123,8 +123,9 @@ func (s *Solver) varBumpActitivyByInc(v Var, inc float64) {
 		}
 		s.VarIncreaseRatio *= 1e-100
 	}
+	// Update order_heap with respect to new activity:
 	if s.VarOrder.InHeap(v) {
-		s.VarOrder.Update(v)
+		s.VarOrder.Decrease(v)
 	}
 }
 

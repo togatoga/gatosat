@@ -30,6 +30,19 @@ func (h *Heap) InHeap(x Var) bool {
 	return int(x) < len(h.indices) && h.indices[x] >= 0
 }
 
+func (h *Heap) Decrease(x Var) {
+	if !h.InHeap(x) {
+		panic(fmt.Errorf("The var is not in heap: %d", x))
+	}
+	h.percolateUp(h.indices[x])
+}
+func (h *Heap) Increase(x Var) {
+	if !h.InHeap(x) {
+		panic(fmt.Errorf("The var is not in heap: %d", x))
+	}
+	h.percolateDown(h.indices[x])
+}
+
 func (h *Heap) Activity(x Var) float64 {
 	return h.activity[x]
 }
