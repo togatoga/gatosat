@@ -31,6 +31,11 @@ func GetFlags() []cli.Flag {
 			Usage: "Input cnf file for solving(required)",
 			Value: "None",
 		},
+		cli.IntFlag{
+			Name:  "cpu-time-limit",
+			Usage: "Limit on CPU time allowed in seconds",
+			Value: -1,
+		},
 
 		cli.StringFlag{
 			Name:  "result-output-file, out",
@@ -66,11 +71,27 @@ func printStatistics(s *Solver) {
 	fmt.Printf("c cpu time: %12f\n", elapsedTimeSeconds)
 }
 
-func SetInterupt(s *Solver) {
+func setTimeOut(s *Solver, limitTimeSeconds int) {
+	if limitTimeSeconds <= 0 {
+		return
+	}
+	go func() {
+		<-time.After(time.Duration(limitTimeSeconds) * time.Second)
+		fmt.Println("c TIMEOUT")
+		if s.Verbosity {
+			printStatistics(s)
+		}
+		fmt.Println("\ns INDETERMINATE")
+		os.Exit(0)
+	}()
+}
+
+func setInterupt(s *Solver) {
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
+		fmt.Println("c INTERUPT")
 		if s.Verbosity {
 			printStatistics(s)
 		}
@@ -125,7 +146,8 @@ func main() {
 		}
 		in := bufio.NewScanner(fp)
 		solver := NewSolver(c)
-		SetInterupt(solver)
+		setTimeOut(solver, c.Int("cpu-time-limit"))
+		setInterupt(solver)
 		err = parseDimacs(in, solver)
 		if err != nil {
 			return err
