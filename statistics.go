@@ -27,3 +27,7 @@ func NewStatistics() *Statistics {
 		RemovedClauseCount: 0,
 	}
 }
+
+func (s *Solver) NumClauses() uint64 {
+	return s.Statistics.NumClauses
+}

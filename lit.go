@@ -71,3 +71,35 @@ func (l *Lit) Var() Var {
 func (l *Lit) ToInt() int {
 	return l.X
 }
+
+func (s *Solver) NewVar() Var {
+	v := s.NextVar
+	s.NextVar++
+
+	s.Assigns = append(s.Assigns, LitBoolUndef)
+	s.Polarity = append(s.Polarity, LitBoolFalse)
+	s.VarData = append(s.VarData, *NewVarData(ClaRefUndef, 0))
+	s.Seen = append(s.Seen, false)
+	s.Decision = append(s.Decision, true)
+	s.SetDecisionVar(v, true)
+	return v
+}
+
+func (s *Solver) ValueVar(p Var) LitBool {
+	return s.Assigns[p]
+}
+
+func (s *Solver) ValueLit(p Lit) LitBool {
+	if s.Assigns[p.Var()] == LitBoolUndef {
+		return LitBoolUndef
+	} else if s.Assigns[p.Var()] == LitBoolTrue {
+		if !p.Sign() {
+			return LitBoolTrue
+		}
+	} else if s.Assigns[p.Var()] == LitBoolFalse {
+		if p.Sign() {
+			return LitBoolTrue
+		}
+	}
+	return LitBoolFalse
+}

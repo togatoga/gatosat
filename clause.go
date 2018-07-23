@@ -98,3 +98,104 @@ func (c *Clause) Last() Lit {
 func (c *Clause) Activity() float32 {
 	return c.Act
 }
+
+func (s *Solver) removeSatisfied(data *[]ClauseReference) {
+	copiedIdx := 0
+
+	for lastIdx := 0; lastIdx < len(*data); lastIdx++ {
+		c, err := s.ClaAllocator.GetClause((*data)[lastIdx])
+		if err != nil {
+			panic(err)
+		}
+		if s.satisfied(c) {
+			s.removeClause((*data)[lastIdx])
+		} else {
+			//Trim Clause
+			if !(s.ValueLit(c.At(0)) == LitBoolUndef && s.ValueLit(c.At(1)) == LitBoolUndef) {
+				panic(fmt.Errorf("The 0th and 1th of clause value is not LitBoolUndef: v1: %d = %d v2: %d = %d", c.At(0), s.ValueLit(c.At(0)), c.At(1), s.ValueLit(c.At(1))))
+			}
+			for k := 2; k < c.Size(); k++ {
+				if s.ValueLit(c.At(k)) == LitBoolFalse {
+					c.Data[k] = c.Last()
+					k--
+					c.Data = c.Data[:c.Size()-1]
+				}
+			}
+			(*data)[copiedIdx] = (*data)[lastIdx]
+			copiedIdx++
+		}
+	}
+	(*data) = (*data)[:copiedIdx]
+}
+
+func (s *Solver) detachClause(cr ClauseReference) {
+	c, err := s.ClaAllocator.GetClause(cr)
+	if err != nil {
+		panic(err)
+	}
+	if c.Size() <= 1 {
+		panic(fmt.Errorf("The size of clause is less than 2: %d", c.Size()))
+	}
+	firstLit := c.At(0)
+	secondLit := c.At(1)
+	RemoveWatcher(s.Watches, firstLit.Flip(), *NewWatcher(cr, secondLit))
+	RemoveWatcher(s.Watches, secondLit.Flip(), *NewWatcher(cr, firstLit))
+	if c.Learnt() {
+		s.Statistics.NumLearnts--
+	} else {
+		s.Statistics.NumClauses--
+	}
+}
+
+func (s *Solver) locked(c *Clause) bool {
+	firstLit := c.At(0)
+	if s.ValueLit(firstLit) == LitBoolTrue && s.Reason(firstLit.Var()) != ClaRefUndef {
+		return true
+	}
+	return false
+}
+
+func (s *Solver) satisfied(c *Clause) bool {
+	for i := 0; i < c.Size(); i++ {
+		if s.ValueLit(c.At(i)) == LitBoolTrue {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Solver) removeClause(cr ClauseReference) {
+	c, err := s.ClaAllocator.GetClause(cr)
+	if err != nil {
+		panic(err)
+	}
+	s.detachClause(cr)
+	firstLit := c.At(0)
+	if s.locked(c) {
+		s.VarData[firstLit.Var()].Reason = ClaRefUndef
+	}
+	c.SetMark(DeletedMark)
+	delete(s.ClaAllocator.Clauses, cr)
+}
+
+func (s *Solver) attachClause(claRef ClauseReference) (err error) {
+	clause, err := s.ClaAllocator.GetClause(claRef)
+	if err != nil {
+		return err
+	}
+	if clause.Size() < 2 {
+		return fmt.Errorf("The size of clause is less than 2 %v", clause)
+	}
+
+	firstLit := clause.At(0)
+	secondLit := clause.At(1)
+
+	s.Watches[firstLit.Flip()] = append(s.Watches[firstLit.Flip()], NewWatcher(claRef, secondLit))
+	s.Watches[secondLit.Flip()] = append(s.Watches[secondLit.Flip()], NewWatcher(claRef, firstLit))
+	if clause.Learnt() {
+		s.Statistics.NumLearnts++
+	} else {
+		s.Statistics.NumClauses++
+	}
+	return nil
+}

@@ -61,38 +61,6 @@ func NewSolver(c *cli.Context) *Solver {
 	}
 }
 
-func (s *Solver) NewVar() Var {
-	v := s.NextVar
-	s.NextVar++
-
-	s.Assigns = append(s.Assigns, LitBoolUndef)
-	s.Polarity = append(s.Polarity, LitBoolFalse)
-	s.VarData = append(s.VarData, *NewVarData(ClaRefUndef, 0))
-	s.Seen = append(s.Seen, false)
-	s.Decision = append(s.Decision, true)
-	s.SetDecisionVar(v, true)
-	return v
-}
-
-func (s *Solver) ValueVar(p Var) LitBool {
-	return s.Assigns[p]
-}
-
-func (s *Solver) ValueLit(p Lit) LitBool {
-	if s.Assigns[p.Var()] == LitBoolUndef {
-		return LitBoolUndef
-	} else if s.Assigns[p.Var()] == LitBoolTrue {
-		if !p.Sign() {
-			return LitBoolTrue
-		}
-	} else if s.Assigns[p.Var()] == LitBoolFalse {
-		if p.Sign() {
-			return LitBoolTrue
-		}
-	}
-	return LitBoolFalse
-}
-
 func (s *Solver) varDecayActivity() {
 	s.VarIncreaseRatio *= (1 / s.VarDecayRatio)
 }
@@ -137,10 +105,6 @@ func (s *Solver) varBumpActitivyByInc(v Var, inc float64) {
 
 func (s *Solver) NumVars() int {
 	return int(s.NextVar)
-}
-
-func (s *Solver) NumClauses() uint64 {
-	return s.Statistics.NumClauses
 }
 
 func (s *Solver) NumAssigns() int {
@@ -278,85 +242,6 @@ func (s *Solver) reduceDB() {
 	s.LearntClauses = s.LearntClauses[:copiedIdx]
 }
 
-func (s *Solver) removeSatisfied(data *[]ClauseReference) {
-	copiedIdx := 0
-
-	for lastIdx := 0; lastIdx < len(*data); lastIdx++ {
-		c, err := s.ClaAllocator.GetClause((*data)[lastIdx])
-		if err != nil {
-			panic(err)
-		}
-		if s.satisfied(c) {
-			s.removeClause((*data)[lastIdx])
-		} else {
-			//Trim Clause
-			if !(s.ValueLit(c.At(0)) == LitBoolUndef && s.ValueLit(c.At(1)) == LitBoolUndef) {
-				panic(fmt.Errorf("The 0th and 1th of clause value is not LitBoolUndef: v1: %d = %d v2: %d = %d", c.At(0), s.ValueLit(c.At(0)), c.At(1), s.ValueLit(c.At(1))))
-			}
-			for k := 2; k < c.Size(); k++ {
-				if s.ValueLit(c.At(k)) == LitBoolFalse {
-					c.Data[k] = c.Last()
-					k--
-					c.Data = c.Data[:c.Size()-1]
-				}
-			}
-			(*data)[copiedIdx] = (*data)[lastIdx]
-			copiedIdx++
-		}
-	}
-	(*data) = (*data)[:copiedIdx]
-}
-
-func (s *Solver) detachClause(cr ClauseReference) {
-	c, err := s.ClaAllocator.GetClause(cr)
-	if err != nil {
-		panic(err)
-	}
-	if c.Size() <= 1 {
-		panic(fmt.Errorf("The size of clause is less than 2: %d", c.Size()))
-	}
-	firstLit := c.At(0)
-	secondLit := c.At(1)
-	RemoveWatcher(s.Watches, firstLit.Flip(), *NewWatcher(cr, secondLit))
-	RemoveWatcher(s.Watches, secondLit.Flip(), *NewWatcher(cr, firstLit))
-	if c.Learnt() {
-		s.Statistics.NumLearnts--
-	} else {
-		s.Statistics.NumClauses--
-	}
-}
-
-func (s *Solver) locked(c *Clause) bool {
-	firstLit := c.At(0)
-	if s.ValueLit(firstLit) == LitBoolTrue && s.Reason(firstLit.Var()) != ClaRefUndef {
-		return true
-	}
-	return false
-}
-
-func (s *Solver) satisfied(c *Clause) bool {
-	for i := 0; i < c.Size(); i++ {
-		if s.ValueLit(c.At(i)) == LitBoolTrue {
-			return true
-		}
-	}
-	return false
-}
-
-func (s *Solver) removeClause(cr ClauseReference) {
-	c, err := s.ClaAllocator.GetClause(cr)
-	if err != nil {
-		panic(err)
-	}
-	s.detachClause(cr)
-	firstLit := c.At(0)
-	if s.locked(c) {
-		s.VarData[firstLit.Var()].Reason = ClaRefUndef
-	}
-	c.SetMark(DeletedMark)
-	delete(s.ClaAllocator.Clauses, cr)
-}
-
 func (s *Solver) CancelUntil(level int) {
 	if s.decisionLevel() > level {
 		for c := len(s.Trail) - 1; c >= s.TrailLim[level]; c-- {
@@ -455,28 +340,6 @@ func (s *Solver) addClause(lits []Lit) bool {
 	return true
 }
 
-func (s *Solver) attachClause(claRef ClauseReference) (err error) {
-	clause, err := s.ClaAllocator.GetClause(claRef)
-	if err != nil {
-		return err
-	}
-	if clause.Size() < 2 {
-		return fmt.Errorf("The size of clause is less than 2 %v", clause)
-	}
-
-	firstLit := clause.At(0)
-	secondLit := clause.At(1)
-
-	s.Watches[firstLit.Flip()] = append(s.Watches[firstLit.Flip()], NewWatcher(claRef, secondLit))
-	s.Watches[secondLit.Flip()] = append(s.Watches[secondLit.Flip()], NewWatcher(claRef, firstLit))
-	if clause.Learnt() {
-		s.Statistics.NumLearnts++
-	} else {
-		s.Statistics.NumClauses++
-	}
-	return nil
-}
-
 func (s *Solver) luby(y float64, x int) float64 {
 	var seq, size int
 
@@ -525,7 +388,7 @@ func (s *Solver) Solve() LitBool {
 		restartBase := s.luby(s.RestartIncreaseRatio, currentRestartCount)
 		maxConflictCount := int(restartBase) * s.RestartFirst
 
-		status = s.Search(maxConflictCount)
+		status = s.search(maxConflictCount)
 		if status != LitBoolUndef {
 			break
 		}
@@ -543,23 +406,9 @@ func (s *Solver) Solve() LitBool {
 	return status
 }
 
-func (s *Solver) Reason(x Var) ClauseReference {
-	return s.VarData[x].Reason
-}
-
-func (s *Solver) Level(x Var) int {
-	return s.VarData[x].Level
-}
-
 func (s *Solver) SetDecisionVar(x Var, eligible bool) {
 	s.Decision[int(x)] = eligible
 	s.InsertVarOrder(x)
-}
-
-func (s *Solver) InsertVarOrder(x Var) {
-	if !s.VarOrder.InHeap(x) && s.Decision[x] {
-		s.VarOrder.PushBack(x)
-	}
 }
 
 func (s *Solver) analyze(confl ClauseReference) (learntClause []Lit, backTrackLevel int) {
@@ -685,7 +534,7 @@ func (s *Solver) simplify() bool {
 	return true
 }
 
-func (s *Solver) Search(maxConflictCount int) LitBool {
+func (s *Solver) search(maxConflictCount int) LitBool {
 	if !s.OK {
 		panic("s.OK is false")
 	}

@@ -127,3 +127,9 @@ func rightIndex(i int) int {
 func parentIndex(i int) int {
 	return (i - 1) >> 1
 }
+
+func (s *Solver) InsertVarOrder(x Var) {
+	if !s.VarOrder.InHeap(x) && s.Decision[x] {
+		s.VarOrder.PushBack(x)
+	}
+}
