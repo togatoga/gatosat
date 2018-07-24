@@ -6,8 +6,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/urfave/cli"
-
 	"github.com/k0kubun/pp"
 )
 
@@ -40,9 +38,9 @@ type Solver struct {
 	Statistics                 *Statistics       //Statistics
 }
 
-func NewSolver(c *cli.Context) *Solver {
+func NewSolver() *Solver {
 	return &Solver{
-		Verbosity:                  c.Bool("verbosity"),
+		Verbosity:                  *Verbose,
 		ClaAllocator:               NewClauseAllocator(),
 		Watches:                    NewWatches(),
 		Qhead:                      0,

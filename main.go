@@ -3,53 +3,23 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/urfave/cli"
+	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var CurrentTime time.Time
-var DebugMode bool
 
-func GetFlags() []cli.Flag {
-	return []cli.Flag{
-		cli.BoolFlag{
-			Name:  "debug,d",
-			Usage: "Debug mode",
-		},
-
-		cli.BoolTFlag{
-			Name:  "verbosity,verb",
-			Usage: "Verbosity mode",
-		},
-		cli.StringFlag{
-			Name:  "input-file, in",
-			Usage: "Input cnf file for solving(required)",
-			Value: "None",
-		},
-		cli.IntFlag{
-			Name:  "cpu-time-limit",
-			Usage: "Limit on CPU time allowed in seconds",
-			Value: -1,
-		},
-
-		cli.StringFlag{
-			Name:  "result-output-file, out",
-			Usage: "Output file",
-		},
-	}
-}
-
-func ValidateFlags(c *cli.Context) (err error) {
-	if c.String("input-file") == "None" {
-		return fmt.Errorf("input-file is required.")
-	}
-	return nil
-}
+var (
+	DebugMode    = kingpin.Flag("debug", "Debug mode").Short('d').Bool()
+	Verbose      = kingpin.Flag("verbose", "Vervosity mode").Short('v').Default("true").Bool()
+	InputFile    = kingpin.Arg("input-file", "Input cnf file for solving").Required().File()
+	OutputFile   = kingpin.Arg("output-file", "Output result file").String()
+	CPUTimeLimit = kingpin.Flag("cpu-time-limit", "Limit on CPU time allowed in seconds").Int()
+)
 
 func printProblemStatistics(s *Solver) {
 	fmt.Printf("c ============================[ Problem Statistics ]=============================\n")
@@ -112,65 +82,75 @@ func printModel(s *Solver) {
 	fmt.Print("0\n")
 }
 
+func writeOutputFile(file string, s *Solver, status LitBool) error {
+	var fp *os.File
+
+	if _, err := os.Stat(file); os.IsNotExist(err) {
+		fp, err = os.Create(file)
+		if err != nil {
+			return err
+		}
+	}
+
+	if status == LitBoolTrue {
+		for i := 0; i < s.NumVars(); i++ {
+			if s.Model[i] == LitBoolTrue {
+				fp.WriteString(fmt.Sprintf("%d ", i+1))
+			} else {
+				fp.WriteString(fmt.Sprintf("%d ", -(i + 1)))
+			}
+		}
+		fmt.Print("0\n")
+	} else if status == LitBoolFalse {
+		fp.WriteString("UNSAT")
+	}
+	return nil
+}
+
 func init() {
 	CurrentTime = time.Now()
 }
 
-func main() {
+func run() int {
+	//input
+	inFp := *InputFile
+	defer inFp.Close()
+	in := bufio.NewScanner(inFp)
 
-	app := cli.NewApp()
-	app.Name = "gatosat"
-	app.Usage = "A CDCL SAT Solver written in Go"
-	app.Flags = GetFlags()
+	solver := NewSolver()
+	setTimeOut(solver, *CPUTimeLimit)
+	setInterupt(solver)
 
-	app.Before = func(c *cli.Context) error {
-		DebugMode = c.Bool("debug")
-		return nil
-	}
-
-	app.Action = func(c *cli.Context) error {
-		var err error
-		//validate flag
-		err = ValidateFlags(c)
-		if err != nil {
-			fmt.Println(err)
-			cli.ShowAppHelpAndExit(c, 2)
-		}
-
-		//input
-		inputFile := c.String("input-file")
-		fp, err := os.Open(inputFile)
-		defer fp.Close()
-		if err != nil {
-			return err
-		}
-		in := bufio.NewScanner(fp)
-		solver := NewSolver(c)
-		setTimeOut(solver, c.Int("cpu-time-limit"))
-		setInterupt(solver)
-		err = parseDimacs(in, solver)
-		if err != nil {
-			return err
-		}
-		if solver.Verbosity {
-			printProblemStatistics(solver)
-		}
-		status := solver.Solve()
-
-		if solver.Verbosity {
-			printStatistics(solver)
-		}
-		if status == LitBoolTrue {
-			fmt.Println("\ns SATISFIABLE")
-			printModel(solver)
-		} else if status == LitBoolFalse {
-			fmt.Println("\ns UNSATISFIABLE")
-		}
-		return nil
-	}
-
-	err := app.Run(os.Args)
+	err := parseDimacs(in, solver)
 	if err != nil {
-		log.Fatal(err)
+		return 1
 	}
+	if solver.Verbosity {
+		printProblemStatistics(solver)
+	}
+
+	status := solver.Solve()
+
+	if solver.Verbosity {
+		printStatistics(solver)
+	}
+
+	if status == LitBoolTrue {
+		fmt.Println("\ns SATISFIABLE")
+		printModel(solver)
+	} else if status == LitBoolFalse {
+		fmt.Println("\ns UNSATISFIABLE")
+	}
+
+	if OutputFile != nil {
+		writeOutputFile(*OutputFile, solver, status)
+	}
+
+	return 0
+}
+
+func main() {
+	kingpin.Version("0.0.1")
+	kingpin.Parse()
+	os.Exit(run())
 }
