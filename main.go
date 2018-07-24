@@ -90,7 +90,13 @@ func writeOutputFile(file string, s *Solver, status LitBool) error {
 		if err != nil {
 			return err
 		}
+	} else {
+		fp, err = os.Create(file)
+		if err != nil {
+			return err
+		}
 	}
+	defer fp.Close()
 
 	if status == LitBoolTrue {
 		for i := 0; i < s.NumVars(); i++ {
@@ -100,7 +106,7 @@ func writeOutputFile(file string, s *Solver, status LitBool) error {
 				fp.WriteString(fmt.Sprintf("%d ", -(i + 1)))
 			}
 		}
-		fmt.Print("0\n")
+		fp.WriteString("0\n")
 	} else if status == LitBoolFalse {
 		fp.WriteString("UNSAT")
 	}
