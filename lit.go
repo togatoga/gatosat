@@ -68,21 +68,8 @@ func (l *Lit) Var() Var {
 	return Var(l.X >> 1)
 }
 
-func (l *Lit) ToInt() int {
+func LitToInt(l Lit) int {
 	return l.X
-}
-
-func (s *Solver) NewVar() Var {
-	v := s.NextVar
-	s.NextVar++
-
-	s.Assigns = append(s.Assigns, LitBoolUndef)
-	s.Polarity = append(s.Polarity, LitBoolFalse)
-	s.VarData = append(s.VarData, *NewVarData(ClaRefUndef, 0))
-	s.Seen = append(s.Seen, false)
-	s.Decision = append(s.Decision, true)
-	s.SetDecisionVar(v, true)
-	return v
 }
 
 func (s *Solver) ValueVar(p Var) LitBool {

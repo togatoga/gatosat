@@ -138,8 +138,8 @@ func (s *Solver) detachClause(cr ClauseReference) {
 	}
 	firstLit := c.At(0)
 	secondLit := c.At(1)
-	RemoveWatcher(s.Watches, firstLit.Flip(), *NewWatcher(cr, secondLit))
-	RemoveWatcher(s.Watches, secondLit.Flip(), *NewWatcher(cr, firstLit))
+	RemoveWatcher(s.Watches, firstLit.Flip(), NewWatcher(cr, secondLit))
+	RemoveWatcher(s.Watches, secondLit.Flip(), NewWatcher(cr, firstLit))
 	if c.Learnt() {
 		s.Statistics.NumLearnts--
 	} else {
@@ -189,9 +189,9 @@ func (s *Solver) attachClause(claRef ClauseReference) (err error) {
 
 	firstLit := clause.At(0)
 	secondLit := clause.At(1)
+	s.Watches.Append(firstLit.Flip(), NewWatcher(claRef, secondLit))
+	s.Watches.Append(secondLit.Flip(), NewWatcher(claRef, firstLit))
 
-	s.Watches[firstLit.Flip()] = append(s.Watches[firstLit.Flip()], NewWatcher(claRef, secondLit))
-	s.Watches[secondLit.Flip()] = append(s.Watches[secondLit.Flip()], NewWatcher(claRef, firstLit))
 	if clause.Learnt() {
 		s.Statistics.NumLearnts++
 	} else {
