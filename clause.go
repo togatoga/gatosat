@@ -68,7 +68,7 @@ func NewClause(ps []Lit, useExtra, learnt bool) *Clause {
 }
 
 func (c *Clause) Size() int {
-	return len(c.Data)
+	return c.header.Size
 }
 
 func (c *Clause) Learnt() bool {
@@ -89,6 +89,13 @@ func (c *Clause) Mark() uint {
 
 func (c *Clause) At(i int) Lit {
 	return c.Data[i]
+}
+
+func (c *Clause) Pop() {
+	if c.Size() == 0 {
+		panic(fmt.Errorf("Pop empty clause"))
+	}
+	c.header.Size -= 1
 }
 
 func (c *Clause) Last() Lit {
@@ -115,7 +122,7 @@ func (s *Solver) removeSatisfied(data *[]ClauseReference) {
 				if s.ValueLit(c.At(k)) == LitBoolFalse {
 					c.Data[k] = c.Last()
 					k--
-					c.Data = c.Data[:c.Size()-1]
+					c.Pop()
 				}
 			}
 			(*data)[copiedIdx] = (*data)[lastIdx]
