@@ -29,8 +29,8 @@ func NewWatches() *Watches {
 
 func (w *Watches) Init(v Var) {
 	size := 2*int(v) + 1
-	if len(w.watches) <= size {
-		w.watches = make([][]*Watcher, size+1)
+	for len(w.watches) <= size {
+		w.watches = append(w.watches, []*Watcher{})
 	}
 }
 
@@ -54,6 +54,10 @@ func RemoveWatcher(watches *Watches, x Lit, watcher *Watcher) {
 			break
 		}
 	}
+	if startCopyIdx == -1 {
+		panic("Wacher is not found")
+	}
+
 	//Copy the rest of watcher exclude the value of startCopyIdx
 	for copiedIdx := startCopyIdx; copiedIdx < len(*ws)-1; copiedIdx++ {
 		(*ws)[copiedIdx] = (*ws)[copiedIdx+1]
