@@ -91,10 +91,7 @@ func (s *Solver) clauseBumpActivity(c *Clause) {
 	if c.Activity() > 1e20 {
 		//Rescale:
 		for _, claRef := range s.LearntClauses {
-			c, err := s.ClaAllocator.GetClause(claRef)
-			if err != nil {
-				panic(err)
-			}
+			c := s.ClaAllocator.GetClause(claRef)
 			c.Act *= 1e-20
 		}
 		s.ClauseActitvyIncreaseRatio *= 1e-20
@@ -161,10 +158,8 @@ func (s *Solver) Propagate() ClauseReference {
 
 			// Make sure the false literal is data[1]
 			cr := watcher.claRef
-			clause, err := s.ClaAllocator.GetClause(cr)
-			if err != nil {
-				panic(err)
-			}
+			clause := s.ClaAllocator.GetClause(cr)
+
 			falseLit := p.Flip()
 			if clause.At(0) == falseLit {
 				clause.Data[0], clause.Data[1] = clause.Data[1], falseLit
@@ -222,14 +217,9 @@ func (s *Solver) reduceDB() {
 	sort.Slice(s.LearntClauses, func(i, j int) bool {
 		x := s.LearntClauses[i]
 		y := s.LearntClauses[j]
-		clauseX, err := s.ClaAllocator.GetClause(x)
-		if err != nil {
-			panic(err)
-		}
-		clauseY, err := s.ClaAllocator.GetClause(y)
-		if err != nil {
-			panic(err)
-		}
+		clauseX := s.ClaAllocator.GetClause(x)
+		clauseY := s.ClaAllocator.GetClause(y)
+
 		if clauseX.Size() > 2 {
 			if clauseY.Size() == 2 || clauseX.Activity() < clauseY.Activity() {
 				return true
@@ -242,10 +232,8 @@ func (s *Solver) reduceDB() {
 	remainActivityMaxLimit := s.ClauseActitvyIncreaseRatio / float32(len(s.LearntClauses))
 	for i := 0; i < len(s.LearntClauses); i++ {
 		claRef := s.LearntClauses[i]
-		clause, err := s.ClaAllocator.GetClause(claRef)
-		if err != nil {
-			panic(err)
-		}
+		clause := s.ClaAllocator.GetClause(claRef)
+
 		if clause.Size() > 2 && !s.locked(clause) && (i < len(s.LearntClauses)/2 || clause.Activity() < remainActivityMaxLimit) {
 			s.removeClause(claRef)
 			s.Statistics.RemovedClauseCount++
@@ -439,10 +427,8 @@ func (s *Solver) analyze(confl ClauseReference) (learntClause []Lit, backTrackLe
 			pp.Println(s.VarData[p.Var()], p.Var(), s.decisionLevel(), s.ValueLit(p), pathConflict)
 			panic("The conflict doesn't point any regisions")
 		}
-		conflCla, err := s.ClaAllocator.GetClause(confl)
-		if err != nil {
-			panic(err)
-		}
+		conflCla := s.ClaAllocator.GetClause(confl)
+
 		if conflCla.Learnt() {
 			s.clauseBumpActivity(conflCla)
 		}
@@ -495,10 +481,8 @@ func (s *Solver) analyze(confl ClauseReference) (learntClause []Lit, backTrackLe
 			learntClause[copiedIdx] = learntClause[i]
 			copiedIdx++
 		} else {
-			c, err := s.ClaAllocator.GetClause(s.Reason(x))
-			if err != nil {
-				panic(err)
-			}
+			c := s.ClaAllocator.GetClause(s.Reason(x))
+
 			for k := 1; k < c.Size(); k++ {
 				v := c.At(k)
 				if !s.Seen[v.Var()] && s.Level(v.Var()) > 0 {
@@ -587,10 +571,7 @@ func (s *Solver) search(maxConflictCount int) LitBool {
 				if err != nil {
 					panic(err)
 				}
-				c, err := s.ClaAllocator.GetClause(claRef)
-				if err != nil {
-					panic(err)
-				}
+				c := s.ClaAllocator.GetClause(claRef)
 				s.clauseBumpActivity(c)
 				s.UncheckedEnqueue(learntClause[0], claRef)
 			}
@@ -609,11 +590,11 @@ func (s *Solver) search(maxConflictCount int) LitBool {
 				return LitBoolUndef
 			}
 
-			/* 	//Simplify the set of problem clauses
+			//Simplify the set of problem clauses
 			if s.decisionLevel() == 0 && !s.simplify() {
 				return LitBoolFalse
 			}
-			*/
+
 			if len(s.LearntClauses)-s.NumAssigns() >= int(s.MaxNumLearnt) {
 				//Reduce the set of learnt clauses:
 				s.Statistics.ReduceDBCount++

@@ -26,11 +26,11 @@ func (c *ClauseAllocator) NewAllocate(lits []Lit, learnt bool) (ClauseReference,
 	return cref, nil
 }
 
-func (c *ClauseAllocator) GetClause(claRef ClauseReference) (clause *Clause, err error) {
+func (c *ClauseAllocator) GetClause(claRef ClauseReference) (clause *Clause) {
 	if clause, ok := c.Clauses[claRef]; ok {
-		return clause, nil
+		return clause
 	}
-	return nil, fmt.Errorf("The clause is not allocated: %d", claRef)
+	panic(fmt.Errorf("The clause is not allocated: %d", claRef))
 }
 
 const (
@@ -59,9 +59,9 @@ func NewClause(ps []Lit, useExtra, learnt bool) *Clause {
 	c.header.HasExtra = useExtra
 	c.header.Size = len(ps)
 
-	for i := 0; i < len(ps); i++ {
-		c.Data = append(c.Data, ps[i])
-	}
+	c.Data = make([]Lit, len(ps))
+	copy(c.Data, ps)
+
 	c.Act = 0
 
 	return &c
@@ -103,10 +103,7 @@ func (s *Solver) removeSatisfied(data *[]ClauseReference) {
 	copiedIdx := 0
 
 	for lastIdx := 0; lastIdx < len(*data); lastIdx++ {
-		c, err := s.ClaAllocator.GetClause((*data)[lastIdx])
-		if err != nil {
-			panic(err)
-		}
+		c := s.ClaAllocator.GetClause((*data)[lastIdx])
 		if s.satisfied(c) {
 			s.removeClause((*data)[lastIdx])
 		} else {
@@ -129,10 +126,7 @@ func (s *Solver) removeSatisfied(data *[]ClauseReference) {
 }
 
 func (s *Solver) detachClause(cr ClauseReference) {
-	c, err := s.ClaAllocator.GetClause(cr)
-	if err != nil {
-		panic(err)
-	}
+	c := s.ClaAllocator.GetClause(cr)
 	if c.Size() <= 1 {
 		panic(fmt.Errorf("The size of clause is less than 2: %d", c.Size()))
 	}
@@ -165,10 +159,7 @@ func (s *Solver) satisfied(c *Clause) bool {
 }
 
 func (s *Solver) removeClause(cr ClauseReference) {
-	c, err := s.ClaAllocator.GetClause(cr)
-	if err != nil {
-		panic(err)
-	}
+	c := s.ClaAllocator.GetClause(cr)
 	s.detachClause(cr)
 	firstLit := c.At(0)
 	if s.locked(c) {
@@ -179,10 +170,8 @@ func (s *Solver) removeClause(cr ClauseReference) {
 }
 
 func (s *Solver) attachClause(claRef ClauseReference) (err error) {
-	clause, err := s.ClaAllocator.GetClause(claRef)
-	if err != nil {
-		return err
-	}
+	clause := s.ClaAllocator.GetClause(claRef)
+
 	if clause.Size() < 2 {
 		return fmt.Errorf("The size of clause is less than 2 %v", clause)
 	}
