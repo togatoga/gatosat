@@ -139,6 +139,9 @@ func (s *Solver) detachClause(cr ClauseReference) {
 	}
 	firstLit := c.At(0)
 	secondLit := c.At(1)
+	//TODO
+	//s.Watches.Remove(firstLit.Flip(), cr)
+	//s.Watches.Remove(secondLit.Flip(), cr)
 	RemoveWatcher(s.Watches, firstLit.Flip(), NewWatcher(cr, secondLit))
 	RemoveWatcher(s.Watches, secondLit.Flip(), NewWatcher(cr, firstLit))
 	if c.Learnt() {
