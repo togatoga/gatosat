@@ -11,6 +11,15 @@ import (
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
+const (
+	// SATEXITCODE is the exit code for UNKNOWN
+	SATEXITCODE = 10
+	//UNSATEXITCODE is the exit code for UNKNOWN
+	UNSATEXITCODE = 20
+	// UNKNOWNEXITCODE is the exit code for UNKNOWN
+	UNKNOWNEXITCODE = 0
+)
+
 var CurrentTime time.Time
 
 var (
@@ -129,7 +138,7 @@ func run() int {
 
 	err := parseDimacs(in, solver)
 	if err != nil {
-		return 1
+		return UNKONWNEXITCODE
 	}
 	if solver.Verbosity {
 		printProblemStatistics(solver)
@@ -151,8 +160,13 @@ func run() int {
 	if OutputFile != nil {
 		writeOutputFile(*OutputFile, solver, status)
 	}
+	if status == LitBoolTrue {
+		return SATEXITCODE
+	} else if status == LitBoolFalse {
+		return UNSATEXITCODE
+	}
 
-	return 0
+	return UNKONWNEXITCODE
 }
 
 func main() {
