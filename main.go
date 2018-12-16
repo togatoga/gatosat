@@ -65,6 +65,9 @@ func setTimeOut(s *Solver, limitTimeSeconds int) {
 			printStatistics(s)
 		}
 		fmt.Println("\ns INDETERMINATE")
+		if *Profile != "" {
+			pprof.StopCPUProfile()
+		}
 		os.Exit(0)
 	}()
 }
@@ -79,7 +82,7 @@ func setInterupt(s *Solver) {
 			printStatistics(s)
 		}
 		fmt.Println("\ns INDETERMINATE")
-		if Profile != nil {
+		if *Profile != "" {
 			pprof.StopCPUProfile()
 		}
 		os.Exit(0)
@@ -140,7 +143,7 @@ func run() int {
 	in := bufio.NewScanner(inFp)
 
 	//Start profile
-	if Profile != nil {
+	if *Profile != "" {
 		f, err := os.Create(*Profile)
 		if err != nil {
 			panic(err)
@@ -162,7 +165,7 @@ func run() int {
 
 	status := solver.Solve()
 	//End profile
-	if Profile != nil {
+	if *Profile != "" {
 		pprof.StopCPUProfile()
 	}
 
