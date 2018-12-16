@@ -599,6 +599,9 @@ func (s *Solver) search(maxConflictCount int) LitBool {
 			if len(s.LearntClauses)-s.NumAssigns() >= int(s.MaxNumLearnt) {
 				//Reduce the set of learnt clauses:
 				s.Statistics.ReduceDBCount++
+				//Increase the threshold for the learnt clause
+				//avoid to call reduceDB many times
+				s.MaxNumLearnt *= 1.1
 				s.reduceDB()
 			}
 			nextLit := Lit{X: LitUndef}
