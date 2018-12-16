@@ -21,13 +21,19 @@ func NewClauseAllocator() *ClauseAllocator {
 	return &ClauseAllocator{Qhead: 0, Clauses: []*Clause{}}
 }
 
+//NewAllocate allocates a new clause and returns a reference for a clause
 func (c *ClauseAllocator) NewAllocate(lits []Lit, learnt bool) (ClauseReference, error) {
 	cref := c.Qhead
+	if cref >= ClaRefUndef {
+		panic(fmt.Errorf("The overflow for a clause allocator happnes"))
+	}
 	c.Clauses = append(c.Clauses, NewClause(lits, false, learnt))
 	c.Qhead++
 	return cref, nil
 }
 
+//GetClause returns a pointer for a clause
+//check whether the reference is invalid or not
 func (c *ClauseAllocator) GetClause(claRef ClauseReference) (clause *Clause) {
 	claRefInt := int(claRef)
 	if claRefInt >= len(c.Clauses) {
@@ -41,7 +47,7 @@ func (c *ClauseAllocator) GetClause(claRef ClauseReference) (clause *Clause) {
 }
 
 //FreeClause deletes the clause if the clause is allocated
-//we must not call FreeClause before the removal of the clause
+//NOTE we must not call FreeClause before the removal of the clause
 func (c *ClauseAllocator) FreeClause(claRef ClauseReference) {
 	claRefInt := int(claRef)
 	if claRefInt >= len(c.Clauses) {
