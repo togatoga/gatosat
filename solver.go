@@ -111,10 +111,12 @@ func (s *Solver) varBumpActitivyByInc(v Var, inc float64) {
 	}
 }
 
+// NumVars returns the number of variables
 func (s *Solver) NumVars() int {
 	return int(s.NextVar)
 }
 
+// NumAssigns returns the number what solver assigned literal
 func (s *Solver) NumAssigns() int {
 	return len(s.Trail)
 }
