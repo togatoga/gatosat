@@ -121,6 +121,7 @@ func (s *Solver) NumAssigns() int {
 	return len(s.Trail)
 }
 
+// UncheckedEnqueue assigns a value to true and reason if the value has
 func (s *Solver) UncheckedEnqueue(p Lit, from ClauseReference) {
 	if s.ValueLit(p) != LitBoolUndef {
 		panic(fmt.Sprintf("The assign is not LiteralUndef: ValueLit(%d) = %v", p, s.ValueLit(p)))
