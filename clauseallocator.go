@@ -5,8 +5,10 @@ import (
 	"math"
 )
 
+//ClauseReference represents the reference of a clause for the ClauseAllocator
 type ClauseReference uint32
 
+//ClaRefUndef represents the maximux size of the reference and a undefine region
 const ClaRefUndef ClauseReference = math.MaxUint32
 
 //ClauseAllocator is a allocator for the clause
@@ -17,6 +19,7 @@ type ClauseAllocator struct {
 	WastedSize int             // WastedSize is the number of the removed literal
 }
 
+//NewClauseAllocator returns a pointer of the ClauseAllocator
 func NewClauseAllocator() *ClauseAllocator {
 	return &ClauseAllocator{Qhead: 0, Clauses: []*Clause{}}
 }
