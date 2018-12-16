@@ -18,9 +18,9 @@ type Header struct {
 }
 
 type Clause struct {
-	header Header
-	Data   []Lit
-	Act    float32
+	header Header  // The header represents whether the clause already is deleted or not
+	Data   []Lit   // The Data is the list of the literal
+	Act    float32 // The Act is the clause activity. when we need to delete clauses, we use it
 }
 
 func NewClause(ps []Lit, useExtra, learnt bool) *Clause {
