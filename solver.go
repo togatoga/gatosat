@@ -9,6 +9,7 @@ import (
 	"github.com/k0kubun/pp"
 )
 
+//Solver is the structure for a solver and has much information to solve a sat problem
 type Solver struct {
 	Verbosity                  bool
 	ClaAllocator               *ClauseAllocator  //The allocator for clause
@@ -38,6 +39,7 @@ type Solver struct {
 	Statistics                 *Statistics       //Statistics
 }
 
+//NewSolver returns a pointer of Solver and initializes variables and sets paramters
 func NewSolver() *Solver {
 	return &Solver{
 		Verbosity:                  *Verbose,
@@ -59,6 +61,7 @@ func NewSolver() *Solver {
 	}
 }
 
+//NewVar create a new var
 func (s *Solver) NewVar() Var {
 	v := s.NextVar
 	s.NextVar++
