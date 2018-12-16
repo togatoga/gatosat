@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime/pprof"
 	"syscall"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 const (
 	// SATEXITCODE is the exit code for UNKNOWN
 	SATEXITCODE = 10
-	//UNSATEXITCODE is the exit code for UNKNOWN
+	// UNSATEXITCODE is the exit code for UNKNOWN
 	UNSATEXITCODE = 20
 	// UNKNOWNEXITCODE is the exit code for UNKNOWN
 	UNKNOWNEXITCODE = 0
@@ -23,11 +24,14 @@ const (
 var CurrentTime time.Time
 
 var (
-	DebugMode    = kingpin.Flag("debug", "Debug mode").Short('d').Bool()
+	//DebugMode is an option that solver showes debug information
+	DebugMode = kingpin.Flag("debug", "Debug mode").Short('d').Bool()
+	//Verbose is an option that solver showes extra information
 	Verbose      = kingpin.Flag("verbose", "Vervosity mode").Short('v').Default("true").Bool()
 	InputFile    = kingpin.Arg("input-file", "Input cnf file for solving").Required().File()
 	OutputFile   = kingpin.Arg("output-file", "Output result file").String()
 	CPUTimeLimit = kingpin.Flag("cpu-time-limit", "Limit on CPU time allowed in seconds").Int()
+	Profile      = kingpin.Flag("profile", "Profiler file(pprof)").Short('p').String()
 )
 
 func printProblemStatistics(s *Solver) {
@@ -75,6 +79,9 @@ func setInterupt(s *Solver) {
 			printStatistics(s)
 		}
 		fmt.Println("\ns INDETERMINATE")
+		if Profile != nil {
+			pprof.StopCPUProfile()
+		}
 		os.Exit(0)
 	}()
 }
@@ -132,6 +139,15 @@ func run() int {
 	defer inFp.Close()
 	in := bufio.NewScanner(inFp)
 
+	//Start profile
+	if Profile != nil {
+		f, err := os.Create(*Profile)
+		if err != nil {
+			panic(err)
+		}
+		pprof.StartCPUProfile(f)
+	}
+
 	solver := NewSolver()
 	setTimeOut(solver, *CPUTimeLimit)
 	setInterupt(solver)
@@ -145,6 +161,10 @@ func run() int {
 	}
 
 	status := solver.Solve()
+	//End profile
+	if Profile != nil {
+		pprof.StopCPUProfile()
+	}
 
 	if solver.Verbosity {
 		printStatistics(solver)
