@@ -12,33 +12,44 @@ const ClaRefUndef ClauseReference = math.MaxUint32
 //ClauseAllocator is a allocator for the clause
 //NOTE we need to improve the performance of alloc/free in the future
 type ClauseAllocator struct {
-	Qhead   ClauseReference             //the head of the ClauseAllocator
-	Clauses map[ClauseReference]*Clause // the performace of the map is really bad. we should replace it with the array?
+	Qhead      ClauseReference // Qhead is the head of the Clauses
+	Clauses    []*Clause       // Clauses is the list of Clause pointer
+	WastedSize int             // WastedSize is the number of the removed literal
 }
 
 func NewClauseAllocator() *ClauseAllocator {
-	return &ClauseAllocator{Qhead: 0, Clauses: make(map[ClauseReference]*Clause)}
+	return &ClauseAllocator{Qhead: 0, Clauses: []*Clause{}}
 }
 
 func (c *ClauseAllocator) NewAllocate(lits []Lit, learnt bool) (ClauseReference, error) {
 	cref := c.Qhead
-	c.Clauses[cref] = NewClause(lits, false, learnt)
+	c.Clauses = append(c.Clauses, NewClause(lits, false, learnt))
 	c.Qhead++
 	return cref, nil
 }
 
 func (c *ClauseAllocator) GetClause(claRef ClauseReference) (clause *Clause) {
-	if clause, ok := c.Clauses[claRef]; ok {
-		return clause
+	claRefInt := int(claRef)
+	if claRefInt >= len(c.Clauses) {
+		panic(fmt.Errorf("The clause is not allocated: ref = %d size = %d", claRef, len(c.Clauses)))
 	}
-	panic(fmt.Errorf("The clause is not allocated: %d", claRef))
+	cla := c.Clauses[claRef]
+	if cla.IsRemoved() {
+		panic(fmt.Errorf("This clause is already removed: ref = %d", claRef))
+	}
+	return cla
 }
 
 //FreeClause deletes the clause if the clause is allocated
+//we must not call FreeClause before the removal of the clause
 func (c *ClauseAllocator) FreeClause(claRef ClauseReference) {
-	if _, ok := c.Clauses[claRef]; ok {
-		delete(c.Clauses, claRef)
-		return
+	claRefInt := int(claRef)
+	if claRefInt >= len(c.Clauses) {
+		panic(fmt.Errorf("The clause is not allocated: ref = %d size = %d", claRef, len(c.Clauses)))
 	}
-	panic(fmt.Errorf("The clause is not allocated: %d", claRef))
+	cla := c.Clauses[claRef]
+	if !cla.IsRemoved() {
+		panic(fmt.Errorf("This clause is not removed: ref = %d", claRef))
+	}
+	c.WastedSize += cla.Size()
 }

@@ -11,14 +11,14 @@ const (
 
 //Clause
 type Header struct {
-	Mark     uint
-	Learnt   bool
-	HasExtra bool
-	Size     int
+	Mark     uint // The Marks represents whether the clause already is deleted or not
+	Learnt   bool // The Learnt represents whether the clause is a learnt clause or not
+	HasExtra bool // TODO
+	Size     int  // The Size represents the number of the clause
 }
 
 type Clause struct {
-	header Header  // The header represents whether the clause already is deleted or not
+	header Header  // The header represents
 	Data   []Lit   // The Data is the list of the literal
 	Act    float32 // The Act is the clause activity. when we need to delete clauses, we use it
 }
@@ -75,6 +75,11 @@ func (c *Clause) Last() Lit {
 
 func (c *Clause) Activity() float32 {
 	return c.Act
+}
+
+//IsRemoved returns boolean whether the clause is removed or not
+func (c *Clause) IsRemoved() bool {
+	return c.header.Mark == DeletedMark
 }
 
 func (s *Solver) removeSatisfied(data *[]ClauseReference) {
