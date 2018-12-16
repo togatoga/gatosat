@@ -9,7 +9,7 @@ const (
 	DeletedMark uint = iota
 )
 
-//Clause
+//Header is the structure for additional information for a clause
 type Header struct {
 	Mark     uint // The Marks represents whether the clause already is deleted or not
 	Learnt   bool // The Learnt represents whether the clause is a learnt clause or not
@@ -17,12 +17,14 @@ type Header struct {
 	Size     int  // The Size represents the number of the clause
 }
 
+//Clause is the structure for core information for a clause
 type Clause struct {
 	header Header  // The header represents
 	Data   []Lit   // The Data is the list of the literal
 	Act    float32 // The Act is the clause activity. when we need to delete clauses, we use it
 }
 
+//NewClause returns a pointer of a new clause
 func NewClause(ps []Lit, useExtra, learnt bool) *Clause {
 	var c Clause
 	c.header.Mark = ExistMark
@@ -115,9 +117,6 @@ func (s *Solver) detachClause(cr ClauseReference) {
 	}
 	firstLit := c.At(0)
 	secondLit := c.At(1)
-	//TODO
-	//s.Watches.Remove(firstLit.Flip(), cr)
-	//s.Watches.Remove(secondLit.Flip(), cr)
 	RemoveWatcher(s.Watches, firstLit.Flip(), NewWatcher(cr, secondLit))
 	RemoveWatcher(s.Watches, secondLit.Flip(), NewWatcher(cr, firstLit))
 	if c.Learnt() {
