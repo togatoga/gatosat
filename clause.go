@@ -38,6 +38,7 @@ func (c *ClauseAllocator) GetClause(claRef ClauseReference) (clause *Clause) {
 func (c *ClauseAllocator) FreeClause(claRef ClauseReference) {
 	if _, ok := c.Clauses[claRef]; ok {
 		delete(c.Clauses, claRef)
+		return
 	}
 	panic(fmt.Errorf("The clause is not allocated: %d", claRef))
 }
