@@ -5,14 +5,15 @@ import (
 	"math"
 )
 
-//ClauseAllocator
 type ClauseReference uint32
 
 const ClaRefUndef ClauseReference = math.MaxUint32
 
+//ClauseAllocator is a allocator for the clause
+//NOTE we need to improve the performance of alloc/free in the future
 type ClauseAllocator struct {
-	Qhead   ClauseReference //Allocate
-	Clauses map[ClauseReference]*Clause
+	Qhead   ClauseReference             //the head of the ClauseAllocator
+	Clauses map[ClauseReference]*Clause // the performace of the map is really bad. we should replace it with the array?
 }
 
 func NewClauseAllocator() *ClauseAllocator {
@@ -29,6 +30,14 @@ func (c *ClauseAllocator) NewAllocate(lits []Lit, learnt bool) (ClauseReference,
 func (c *ClauseAllocator) GetClause(claRef ClauseReference) (clause *Clause) {
 	if clause, ok := c.Clauses[claRef]; ok {
 		return clause
+	}
+	panic(fmt.Errorf("The clause is not allocated: %d", claRef))
+}
+
+//FreeClause deletes the clause if the clause is allocated
+func (c *ClauseAllocator) FreeClause(claRef ClauseReference) {
+	if _, ok := c.Clauses[claRef]; ok {
+		delete(c.Clauses, claRef)
 	}
 	panic(fmt.Errorf("The clause is not allocated: %d", claRef))
 }
@@ -176,7 +185,7 @@ func (s *Solver) removeClause(cr ClauseReference) {
 		s.VarData[firstLit.Var()].Reason = ClaRefUndef
 	}
 	c.SetMark(DeletedMark)
-	delete(s.ClaAllocator.Clauses, cr)
+	s.ClaAllocator.FreeClause(cr)
 }
 
 func (s *Solver) attachClause(claRef ClauseReference) (err error) {

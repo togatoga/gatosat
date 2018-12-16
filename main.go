@@ -138,7 +138,7 @@ func run() int {
 
 	err := parseDimacs(in, solver)
 	if err != nil {
-		return UNKNOWNEXITCODE 
+		return UNKNOWNEXITCODE
 	}
 	if solver.Verbosity {
 		printProblemStatistics(solver)
