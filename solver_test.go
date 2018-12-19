@@ -43,4 +43,37 @@ func TestSolve(t *testing.T) {
 			}
 		}
 	}
+	//UNSAT
+	unsatDir := "test/unsat"
+	unsatFiles, err := ioutil.ReadDir(unsatDir)
+	if err != nil {
+		panic(err)
+	}
+	for _, unsatFile := range unsatFiles {
+		if unsatFile.IsDir() {
+			continue
+		}
+		if strings.HasSuffix(unsatFile.Name(), ".cnf") {
+			fileName := filepath.Join(unsatDir, unsatFile.Name())
+
+			f, err := os.Open(fileName)
+			if err != nil {
+				panic(err)
+			}
+			buf := bufio.NewScanner(f)
+			fmt.Println("The solver is solving a unsat problem... ", fileName)
+			solver := NewSolver()
+			err = parseDimacs(buf, solver)
+			if err != nil {
+				fmt.Println(err, fileName)
+				continue
+			}
+			status := solver.Solve()
+			if status != LitBoolFalse {
+				err = fmt.Errorf("The solver returns a wrong value for a unsat problem: %s", fileName)
+				panic(err)
+			}
+		}
+	}
+
 }
