@@ -12,8 +12,9 @@ const (
 	LitBoolUndef LitBool = 2
 )
 
+//Lit is a struct for a Literal
 type Lit struct {
-	X int
+	X int //A false literal is a odd value(e.g not x1 -> X = 3)
 }
 
 const (
@@ -21,6 +22,8 @@ const (
 	LitError = -1
 )
 
+//NewLit returns a pointer of the Lit
+//A false Lit is returned when sign is trues
 func NewLit(x Var, sign bool) *Lit {
 	var p Lit
 	y := 2 * x
@@ -31,6 +34,7 @@ func NewLit(x Var, sign bool) *Lit {
 	return &p
 }
 
+//Equal a boolean indicating whether p is equal to l
 func (l *Lit) Equal(p Lit) bool {
 	if l.X != p.X {
 		return false
@@ -38,11 +42,9 @@ func (l *Lit) Equal(p Lit) bool {
 	return true
 }
 
+//NotEqual a boolean indicating whether p is NOT equal to l
 func (l *Lit) NotEqual(p Lit) bool {
-	if l.X == p.X {
-		return false
-	}
-	return true
+	return !l.Equal(p)
 }
 
 func (l *Lit) Less(p Lit) bool {
