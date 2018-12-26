@@ -4,24 +4,29 @@ import (
 	"fmt"
 )
 
+//Heap is a struct for deciding the priority of the decision
 type Heap struct {
 	data     []Var     // The content of data
 	indices  []int     // The heap index of Var
 	activity []float64 // The priority of each variable.
 }
 
+//NewHeap returns a pointer of Heap
 func NewHeap() *Heap {
 	return &Heap{}
 }
 
+//Less returns a boolean indicating whether two variables are small
 func (h *Heap) Less(i, j int) bool {
 	return h.activity[i] > h.activity[j]
 }
 
+//Size returns the size of data
 func (h *Heap) Size() int {
 	return len(h.data)
 }
 
+//Empty returns a boolean indicating whether the size of data is zero or not
 func (h *Heap) Empty() bool {
 	return len(h.data) == 0
 }
