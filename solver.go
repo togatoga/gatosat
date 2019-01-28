@@ -5,8 +5,6 @@ import (
 	"math"
 	"sort"
 	"time"
-
-	"github.com/k0kubun/pp"
 )
 
 //Solver is the structure for a solver and has much information to solve a sat problem
@@ -224,8 +222,8 @@ func (s *Solver) reduceDB() {
 		clauseX := s.ClaAllocator.GetClause(x)
 		clauseY := s.ClaAllocator.GetClause(y)
 
-		if clauseX.Size() > 2 {
-			if clauseY.Size() == 2 || clauseX.Activity() < clauseY.Activity() {
+		if clauseX.Size() > 2 || clauseX.LBD() > 2 {
+			if clauseY.Size() == 2 || clauseX.LBD() > clauseY.LBD() || clauseX.Activity() < clauseY.Activity() {
 				return true
 			}
 		}
@@ -238,7 +236,7 @@ func (s *Solver) reduceDB() {
 		claRef := s.LearntClauses[i]
 		clause := s.ClaAllocator.GetClause(claRef)
 
-		if clause.Size() > 2 && !s.locked(clause) && (i < len(s.LearntClauses)/2 || clause.Activity() < remainActivityMaxLimit) {
+		if (clause.Size() > 2 || clause.LBD() > 2) && !s.locked(clause) && (i < len(s.LearntClauses)/2 || clause.Activity() < remainActivityMaxLimit) {
 			s.removeClause(claRef)
 			s.Statistics.RemovedClauseCount++
 		} else {
@@ -428,7 +426,6 @@ func (s *Solver) analyze(confl ClauseReference) (learntClause []Lit, backTrackLe
 	for {
 
 		if confl == ClaRefUndef {
-			pp.Println(s.VarData[p.Var()], p.Var(), s.decisionLevel(), s.ValueLit(p), pathConflict)
 			panic("The conflict doesn't point any regisions")
 		}
 		conflCla := s.ClaAllocator.GetClause(confl)
@@ -576,6 +573,11 @@ func (s *Solver) search(maxConflictCount int) LitBool {
 					panic(err)
 				}
 				c := s.ClaAllocator.GetClause(claRef)
+				lbd := s.ComputeLBD(learntClause)
+				if lbd <= 2 {
+					s.Statistics.NumLBD2Learnts++
+				}
+				c.SetLBD(lbd)
 				s.clauseBumpActivity(c)
 				s.UncheckedEnqueue(learntClause[0], claRef)
 			}
