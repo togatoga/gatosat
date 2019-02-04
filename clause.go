@@ -14,6 +14,7 @@ type Header struct {
 	Mark     uint // The Marks represents whether the clause already is deleted or not
 	Learnt   bool // The Learnt represents whether the clause is a learnt clause or not
 	HasExtra bool // TODO
+	Lbd      int  // The value of the Literal Block Distance
 	Size     int  // The Size represents the number of the clause
 }
 
@@ -31,39 +32,46 @@ func NewClause(ps []Lit, useExtra, learnt bool) *Clause {
 	c.header.Learnt = learnt
 	c.header.HasExtra = useExtra
 	c.header.Size = len(ps)
-
+	c.header.Lbd = 0
 	c.Data = make([]Lit, len(ps))
-	copy(c.Data, ps)
 
+	copy(c.Data, ps)
 	c.Act = 0
 
 	return &c
 }
 
+//Size returns the size of a clause
 func (c *Clause) Size() int {
 	return c.header.Size
 }
 
+//Learnt returns a boolean indicating whether a clause is learnt or not
 func (c *Clause) Learnt() bool {
 	return c.header.Learnt
 }
 
+//HasExtra returns a boolean indicating whether a HasExtra is true or not
 func (c *Clause) HasExtra() bool {
 	return c.header.HasExtra
 }
 
+//SetMark sets a mark
 func (c *Clause) SetMark(mark uint) {
 	c.header.Mark = mark
 }
 
+//Mark returns a mark
 func (c *Clause) Mark() uint {
 	return c.header.Mark
 }
 
+//At returns a i idx lit for a clause
 func (c *Clause) At(i int) Lit {
 	return c.Data[i]
 }
 
+//Pop decreases the size of clause by 1
 func (c *Clause) Pop() {
 	if c.Size() == 0 {
 		panic(fmt.Errorf("Pop empty clause"))
@@ -71,10 +79,12 @@ func (c *Clause) Pop() {
 	c.header.Size -= 1
 }
 
+//Last returns a last Lit for a clause
 func (c *Clause) Last() Lit {
 	return c.Data[c.Size()-1]
 }
 
+//Activity returns an activity for a clause
 func (c *Clause) Activity() float32 {
 	return c.Act
 }
@@ -86,7 +96,6 @@ func (c *Clause) IsRemoved() bool {
 
 func (s *Solver) removeSatisfied(data *[]ClauseReference) {
 	copiedIdx := 0
-
 	for lastIdx := 0; lastIdx < len(*data); lastIdx++ {
 		c := s.ClaAllocator.GetClause((*data)[lastIdx])
 		if s.satisfied(c) {

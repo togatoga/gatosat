@@ -31,16 +31,20 @@ func (h *Heap) Empty() bool {
 	return len(h.data) == 0
 }
 
+//InHeap returns a boolean indicating whether a Var x is in the Heap
 func (h *Heap) InHeap(x Var) bool {
 	return int(x) < len(h.indices) && h.indices[x] >= 0
 }
 
+//Decrease decreases the priority for a Var x
 func (h *Heap) Decrease(x Var) {
 	if !h.InHeap(x) {
 		panic(fmt.Errorf("The var is not in heap: %d", x))
 	}
 	h.percolateUp(h.indices[x])
 }
+
+//Increase increases the priority for a Var x
 func (h *Heap) Increase(x Var) {
 	if !h.InHeap(x) {
 		panic(fmt.Errorf("The var is not in heap: %d", x))
@@ -48,10 +52,12 @@ func (h *Heap) Increase(x Var) {
 	h.percolateDown(h.indices[x])
 }
 
+//Activity returns the activity for a Var x
 func (h *Heap) Activity(x Var) float64 {
 	return h.activity[x]
 }
 
+//Update updates the priority of a Var x
 func (h *Heap) Update(x Var) {
 	if !h.InHeap(x) {
 		h.PushBack(x)

@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	// SATEXITCODE is the exit code for UNKNOWN
+	// SATEXITCODE is the exit code for SAT
 	SATEXITCODE = 10
-	// UNSATEXITCODE is the exit code for UNKNOWN
+	// UNSATEXITCODE is the exit code for UNSAT
 	UNSATEXITCODE = 20
 	// UNKNOWNEXITCODE is the exit code for UNKNOWN
 	UNKNOWNEXITCODE = 0
@@ -51,6 +51,8 @@ func printStatistics(s *Solver) {
 	fmt.Printf("c propagations: %12d (%.02f / sec)\n", s.Statistics.PropagationCount, float64(s.Statistics.PropagationCount)/elapsedTimeSeconds)
 	fmt.Printf("c reduce DB: %12d\n", s.Statistics.ReduceDBCount)
 	fmt.Printf("c removed clause: %12d\n", s.Statistics.RemovedClauseCount)
+	fmt.Printf("c binary learnt clause: %12d\n", s.Statistics.NumBinaryLearnts)
+	fmt.Printf("c LBD <= 2 learnt clause: %12d\n", s.Statistics.NumLBD2Learnts)
 	fmt.Printf("c cpu time: %12f\n", elapsedTimeSeconds)
 }
 
